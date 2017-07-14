@@ -87,6 +87,8 @@ df = swap(df,'b','SMO',('a', set(['San Mateo'])))
 ```
 We see that there are three find-and-replace operation that sequentially set the correct values. Note, that this isn't actual code it is a print statement that gives a high-level interpretable output for debugging. 
 
+## Harder Examples
+The `docs` folder contains some harder (and more realistic) scenarios.
 
 
 
