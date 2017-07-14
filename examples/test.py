@@ -1,8 +1,9 @@
+import environ
 import pandas as pd
-from search import *
+from alphaclean.search import *
 
 
-"""
+
 data2 = [{'a': 'New Yorks', 'b': 'NY'}, 
          {'a': 'New York', 'b': 'NY'}, 
          {'a': 'San Francisco', 'b': 'SF'},
@@ -29,7 +30,7 @@ operation = treeSearch(df, (f*g), [Swap], editCost=3)
 print(operation.name)
 
 print(operation.run(df))
-"""
+
 
 
 
@@ -57,6 +58,7 @@ print(operation.name)
 """
 
 
+"""
 from collections import Counter
 df = pd.read_csv('/Users/sanjayk/Documents/research/boostclean/activedetect/datasets/P00000001-ALL.csv', nrows=50, quotechar='\"', index_col=False)
 s = Counter(df['contbr_occupation'].values)
@@ -72,6 +74,7 @@ print(df)
 print(operation.run(df))
 
 print(operation.name)
+"""
 
 
 

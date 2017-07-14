@@ -52,6 +52,12 @@ class Operation(object):
         return op
 
 
+    def __str__(self):
+        return self.name
+
+    __repr__ = __str__
+
+
 """
 A parametrized operation is an operation that
 takes parameters

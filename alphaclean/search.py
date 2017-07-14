@@ -10,7 +10,7 @@ import numpy as np
 import datetime
 
 
-def solve(df, pC, dC, partitionOn=None, evaluations=10):
+def solve(df, patterns=[], dependencies=[], partitionOn=None, evaluations=10):
 
     op = NOOP()
 
@@ -21,16 +21,16 @@ def solve(df, pC, dC, partitionOn=None, evaluations=10):
             print("Computing Block=",b, i ,"out of", len(blocks) )
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
-            op1 = patternConstraints(dfc, pC)
+            op1 = patternConstraints(dfc, patterns)
             dfc = op1.run(dfc)
-            op2 = dependencyConstraints(dfc, dC, evaluations=evaluations)
+            op2 = dependencyConstraints(dfc, dependencies, evaluations=evaluations)
 
             op = op * (op1*op2)
     else:
 
-        op1 = patternConstraints(df, pC)
+        op1 = patternConstraints(df, patterns)
         df = op1.run(df)
-        op2 = dependencyConstraints(df, dC, evaluations=evaluations)
+        op2 = dependencyConstraints(df, dependencies, evaluations=evaluations)
 
         op = op * (op1*op2)
 
@@ -232,7 +232,7 @@ def treeSearch(df,
 
 
 
-    print((datetime.datetime.now() - now).total_seconds())
+    #print((datetime.datetime.now() - now).total_seconds())
 
     #print(heap)
 
