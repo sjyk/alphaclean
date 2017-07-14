@@ -14,7 +14,8 @@ class ParameterSampler(object):
 
     def __init__(self, df, qfn, operationList, substrThresh=0.1, scopeLimit=3, predicate_granularity=None):
         self.df = df
-        self.qfn = qfn
+        self.qfn = qfn.qfn
+        self.qfnobject = qfn
         self.substrThresh = substrThresh
         self.scopeLimit = scopeLimit
         self.operationList = operationList
@@ -91,37 +92,28 @@ class ParameterSampler(object):
                     arg[k] = param[j]
                 
                 #optimization
-                #if self.pruningRules(arg):
-                #    continue
+                if self.pruningRules(arg):
+                    continue
 
                 operations.append(op(**arg))
 
         operations.append(NOOP())
-
-        #print(len(operations))
         
         return operations 
 
 
-    """
+
     def pruningRules(self, arg):
 
         #remove imputes that are uncorrelated
-        if 'predicate' in arg and 'value' in arg:
-            N = self.df.shape[0]
-            allowedValues = set()
+        if 'value' in arg:
+            return (arg['value'] == None) or (arg['value'] != arg['value'])
 
-            if arg['predicate'] in self.predicateIndex:
-                allowedValues = self.predicateIndex[arg['predicate']] 
-            else:
-                for i in range(N):
-                    if arg['predicate'](self.df.iloc[i,:]):
-                        allowedValues.add(self.df[arg['column']].iloc[i])
+        if 'substr1' in arg and 'substr2' in arg:
+            return (arg['substr1'] == arg['substr2'])
 
-                self.predicateIndex[arg['predicate']] = allowedValues
+        return False
 
-            return (arg['value'] not in allowedValues)
-    """
 
 
 
@@ -141,8 +133,7 @@ class ParameterSampler(object):
 
 
     def columnSampler(self):
-        #print('--',self.df.columns.values.tolist())
-        return self.df.columns.values.tolist()
+        return list(self.qfnobject.hint)
 
 
     def columnsSampler(self):
@@ -156,7 +147,10 @@ class ParameterSampler(object):
 
     #brute force
     def valueSampler(self, col):
-        return list(set(self.df[col].values))
+        if isinstance(self.qfn, DictValue) and self.qfn.attr == col:
+            return list(self.qfn.codebook)
+        else:
+            return list(set(self.df[col].values))
   
 
     """
@@ -179,7 +173,7 @@ class ParameterSampler(object):
         #print(self.df[col].values)
         for v in self.df[col].values:
             if v != None:
-                for c in set(v):
+                for c in set(str(v)):
                     if c not in chars:
                         chars[c] = 0
 
@@ -187,7 +181,10 @@ class ParameterSampler(object):
 
         #print((chars[' ']+0.)/self.df.shape[0])
         #print()
-        return [c for c in chars if not c.isalnum()]
+
+        #print([c for c in chars if not c.isalnum()])
+        return ['-','/']
+        #return [c for c in chars if not c.isalnum()]
 
 
     """
@@ -209,9 +206,11 @@ class ParameterSampler(object):
     def predicateSampler(self, col):
         all_predicates = []
 
-        for c in self.df.columns.values:
+        for c in self.qfnobject.hint:
+            #if self.dataset.types[c] == 'cat': #only take categorical values
             all_predicates.extend(self.dataset.getPredicatesDeterministic(self.qfn, c, self.predicate_granularity))
 
+        #print(all_predicates)
         return all_predicates
         #return self.dataset.getPredicates(self.qfn, self.predicate_granularity)
 

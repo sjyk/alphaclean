@@ -4,6 +4,9 @@ This class defines the operations that we can search over.
 Operations define a monoid
 """
 from sets import Set
+import dateparser
+import time
+import re
 
 
 """
@@ -11,11 +14,13 @@ Allows lazy composition of Op functions
 """
 class Operation(object):
 
-    def __init__(self, runfn, depth=1):
+    def __init__(self, runfn, depth=1, provenance=[]):
         self.runfn = lambda df: runfn(df) 
         self.depth = depth
         #self.name = 'df = Generic(df)'
         #self.activeSet = set()
+        if provenance != []:
+            self.provenance = provenance
 
     """
     This runs the operation
@@ -30,7 +35,7 @@ class Operation(object):
     """
     def __mul__(self, other):
         new_runfn = lambda df, a=self, b=other: b.runfn(a.runfn(df))
-        new_op = Operation(new_runfn, self.depth + other.depth)
+        new_op = Operation(new_runfn, self.depth + other.depth, self.provenance + other.provenance)
         new_op.name = self.name + "\n" + other.name
 
         return new_op
@@ -119,6 +124,7 @@ class Split(ParametrizedOperation):
 
 
         self.name = 'df = split(df,'+formatString(column)+','+formatString(delim)+')'
+        self.provenance = [self.name]
 
         super(Split,self).__init__(fn, ['column', 'delim'])
 
@@ -138,6 +144,7 @@ class Merge(ParametrizedOperation):
 
 
         self.name = 'df = merge(df,'+formatString(column1)+','+formatString(column2)+')'
+        self.provenance = [self.name]
 
         super(Merge,self).__init__(fn, ['column1', 'column2'])
 
@@ -177,6 +184,7 @@ class Swap(ParametrizedOperation):
 
 
         self.name = 'df = swap(df,'+formatString(column)+','+formatString(value)+','+str(predicate)+')'
+        self.provenance = [self.name]
 
         super(Swap,self).__init__(fn, ['column', 'predicate', 'value'])
 
@@ -208,8 +216,117 @@ class Delete(ParametrizedOperation):
 
 
         self.name = 'df = delete(df,'+formatString(column)+','+str(predicate)+')'
+        self.provenance = [self.name]
 
         super(Delete,self).__init__(fn, ['column', 'predicate'])
+
+
+
+class TR(ParametrizedOperation):
+
+    paramDescriptor = {'column': ParametrizedOperation.COLUMN,
+                       'substr1': ParametrizedOperation.SUBSTR, 
+                       'substr2': ParametrizedOperation.SUBSTR}
+
+
+    def __init__(self, column, substr1, substr2):
+
+        def fn(df, 
+               column=column, 
+               substr1=substr1,
+               substr2=substr2):
+
+            N = df.shape[0]
+
+            for i in range(N):
+                if df[column].iloc[i] != None:
+
+                    df[column].iloc[i] = str(df[column].iloc[i]).replace(substr1, substr2)
+
+            return df
+
+
+        self.name = 'df = tr(df,'+formatString(column)+','+formatString(substr1)+','+formatString(substr2)+')'
+        self.provenance = [self.name]
+
+        super(TR,self).__init__(fn, ['column', 'substr1', 'substr2'])
+
+
+
+
+class DatetimeCast(ParametrizedOperation):
+
+    paramDescriptor = {'column': ParametrizedOperation.COLUMN,
+                       'form': ParametrizedOperation.SUBSTR}
+
+
+    def __init__(self, column, form):
+
+        def fn(df, 
+               column=column, 
+               format=form):
+
+            N = df.shape[0]
+
+            for i in range(N):
+                if df[column].iloc[i] != None:
+
+                    try:
+                        df[column].iloc[i] = dateparser.parse(str(df[column].iloc[i])).strftime(form)
+                    except:
+                        pass
+
+            return df
+
+
+        self.name = 'df = dateparse(df,'+formatString(column)+','+formatString(form)+')'
+        self.provenance = [self.name]
+
+        super(DatetimeCast, self).__init__(fn, ['column', 'form'])
+
+
+
+
+
+class PatternCast(ParametrizedOperation):
+
+    paramDescriptor = {'column': ParametrizedOperation.COLUMN,
+                       'form': ParametrizedOperation.SUBSTR}
+
+
+    def __init__(self, column, form):
+
+        def fn(df, 
+               column=column, 
+               format=form):
+
+            N = df.shape[0]
+
+            for i in range(N):
+
+                if df[column].iloc[i] != None:
+
+                    try:
+                        df[column].iloc[i] = re.search(form, str(df[column].iloc[i])).group(0)
+                    except:
+                        df[column].iloc[i] = None
+
+
+                if df[column].iloc[i] == '':
+                    df[column].iloc[i] = None
+
+            return df
+
+
+        self.name = 'df = pattern(df,'+formatString(column)+','+formatString(form)+')'
+        self.provenance = [self.name]
+
+        super(PatternCast, self).__init__(fn, ['column', 'form'])
+
+
+
+
+
 
 
 """
@@ -225,53 +342,17 @@ class NOOP(Operation):
 
 
         self.name = ""
+        self.provenance = [self.name]
 
         super(NOOP,self).__init__(fn)
 
 
 
 
-"""
-Force casts the data in the column to an integer
-"""
-class Cast(Operation):
 
-    def __init__(self, attr, castFn, placeholder=None):
-
-        def fn(df, 
-               attr=attr, 
-               castFn= castFn,
-               placeholder=placeholder):
-
-            N = df.shape[0]
-
-            for i in range(N):
-
-                try:
-                    df[attr].iloc[i] = castFn(df[attr].iloc[i])
-                except:
-                    df[attr].iloc[i] = placeholder
-
-            return df
-
-        super(Cast,self).__init__(fn)
-
-
-"""
-Force casts the data in the column to an integer
-"""
-class Enumerate(Operation):
-
-    def __init__(self):
-
-        def fn(df):
-
-            return df.assign(key=list(range(df.shape[0])))
-
-        super(Enumerate,self).__init__(fn)
 
 
 def formatString(s):
-    return "'"+s+"'"
+    return "'"+str(s)+"'"
 
 

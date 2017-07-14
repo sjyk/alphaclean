@@ -58,8 +58,9 @@ def __is_cat(data):
 
 		counts[d] = counts[d] + 1
 
-	total = len([k for k in counts if counts[k] > 1])+0.0
+	totalc = len([k for k in counts if counts[k] > 1])+0.0
+	total = len([k for k in counts])+0.0
 
-	return (total < cat_thresh)
+	return (totalc < cat_thresh) and (totalc/total > 0.2)
 
 

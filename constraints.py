@@ -3,8 +3,13 @@ This module defines a bunch of different types of constraints
 """
 import numpy as np
 import distance 
+import time
+import re
 
 class Constraint(object):
+
+    def __init__(self):
+        self.hint = set()
 
     def qfn(self, df):
         try:
@@ -20,6 +25,9 @@ class Constraint(object):
     def __add__(self, other):
         c = Constraint()
         c.qfn = lambda df: (self.qfn(df) + other.qfn(df))/2
+
+        c.hint = self.hint.union(other.hint)
+
         return c
 
     def __mul__(self, other):
@@ -27,10 +35,12 @@ class Constraint(object):
             fother = float(other)
             c = Constraint()
             c.qfn = lambda df: fother*self.qfn(df)
+            c.hint = self.hint.union(other.hint)
             return c
         except:
             c = Constraint()
             c.qfn = lambda df: np.maximum(self.qfn(df), other.qfn(df))
+            c.hint = self.hint.union(other.hint)
             return c
 
 
@@ -41,6 +51,8 @@ class FD(Constraint):
 
         self.source = source
         self.target = target
+
+        self.hint = set(source + target)
 
 
     def _qfn(self, df):
@@ -68,6 +80,11 @@ class FD(Constraint):
         return qfn_a
 
 
+def OneToOne(source, target):
+    return FD(source, target)*FD(target, source)
+
+
+
 
 
 class Predicate(Constraint):
@@ -77,6 +94,8 @@ class Predicate(Constraint):
         self.attr = attr
         self.expr = expr
 
+        self.hint = set([attr])
+
 
     def _qfn(self, df):
 
@@ -85,11 +104,13 @@ class Predicate(Constraint):
 
         for i in range(N):
             val = df[self.attr].iloc[i]
-            if self.expr(val):
-                #print("a")
+
+            if val == None:
+                qfn_a[i] = 0.01
+
+            elif self.expr(val):
                 qfn_a[i] = 0
 
-        #print(qfn_a)
         return qfn_a
 
 
@@ -141,8 +162,62 @@ class CellEdit(Constraint):
         return qfn_a
 
 
+
+#special predicates
+
 class DictValue(Predicate):
 
-    def __init__(self, attr, dict):
+    def __init__(self, attr, codebook):
 
-        super(DictValue, self).__init__(attr, lambda x: x in dict)
+        self.attr = attr
+
+        self.codebook = codebook
+
+        super(DictValue, self).__init__(attr, lambda x, codebook=codebook: x in codebook)
+
+
+
+class Date(Predicate):
+
+    def __init__(self, attr, pattern):
+
+        self.pattern = pattern
+        self.attr = attr
+
+        def timePatternCheck(x, p):
+
+            if x == None or len(x.strip()) == 0:
+                return False
+
+            try:
+                t = time.strptime(x,p)
+                #print(t)
+                return True
+            except ValueError:
+                return False
+
+
+        super(Date, self).__init__(attr, lambda x, p=pattern: timePatternCheck(x,p))
+
+
+
+class Pattern(Predicate):
+
+    def __init__(self, attr, pattern):
+
+        self.pattern = pattern
+        self.attr = attr
+
+        def timePatternCheck(x, p):
+
+            if x == None or len(x) == 0:
+                return False
+
+            try:
+                result = re.match(p, x)
+                return (result != None)
+            except:
+                return False
+
+
+        super(Pattern, self).__init__(attr, lambda x, p=pattern: timePatternCheck(x,p))
