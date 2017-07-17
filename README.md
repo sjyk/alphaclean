@@ -4,7 +4,7 @@ This practice is highly problematic for reproducibility (sharing analysis betwee
 Most existing relational data cleaning solutions are designed as stand-alone systems, often coupled with a DBMS, with poor language support for Python and R that are widely used in data science.
 
 We designed a Python library that declaratively synthesizes data cleaning programs. 
-AlphaClean is given a  specification of quality (e.g., integrity constraints or a statistical model the data must conform to) and a language of allowed data transformations, and it searches to find a sequence of transformations that maximizes the quality metric.
+AlphaClean is given a  specification of quality (e.g., integrity constraints or a statistical model the data must conform to) and a language of allowed data transformations, and it searches to find a sequence of transformations that best satisfices the quality specification.
 The discovered sequence of transformations defines an intermediate representation, which can be easily transferred between languages or optimized with a compiler.
 
 ## Requirements
