@@ -30,6 +30,8 @@ class ParameterSampler(object):
         parameters = []
         paramset = [(op, sorted(op.paramDescriptor.values()), op.paramDescriptor.values()) for op in self.operationList]
 
+        #print(paramset)
+
         for op, p, orig in paramset:
 
             if p[0] == ParametrizedOperation.COLUMN:
@@ -147,8 +149,9 @@ class ParameterSampler(object):
 
     #brute force
     def valueSampler(self, col):
-        if isinstance(self.qfn, DictValue) and self.qfn.attr == col:
-            return list(self.qfn.codebook)
+        if 'codebook' in self.qfnobject.hintParams:
+            #print(self.qfnobject.hintParams['codebook'])
+            return list(self.qfnobject.hintParams['codebook'])
         else:
             return list(set(self.df[col].values))
   

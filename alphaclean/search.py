@@ -86,7 +86,7 @@ def treeSearch(df,
                editCost=0):
 
 
-    efn = CellEdit(df.copy()).qfn
+    efn = CellEdit(df.copy(), {'contbr_occupation':'jaccard'}).qfn
 
     now = datetime.datetime.now()
 
@@ -128,7 +128,7 @@ def treeSearch(df,
         #orthogonal_fixes = set()
         #orthogonal_fixes_op = []
 
-        #print(i, len(p.getAllOperations()))
+        #print(i, p.getAllOperations())
 
         for opbranch in p.getAllOperations():
 

@@ -8,8 +8,15 @@ import re
 
 class Constraint(object):
 
-    def __init__(self):
-        self.hint = set()
+    def __init__(self, hint=set()):
+        self.hint = hint
+
+        self.hintParams = {}
+
+        try:
+            self.hintParams['codebook'] = self.codebook
+        except:
+            pass
 
     def qfn(self, df):
         try:
@@ -28,6 +35,9 @@ class Constraint(object):
 
         c.hint = self.hint.union(other.hint)
 
+        c.hintParams =  self.hintParams.copy()
+        c.hintParams.update(other.hintParams)
+
         return c
 
     def __mul__(self, other):
@@ -36,11 +46,19 @@ class Constraint(object):
             c = Constraint()
             c.qfn = lambda df: fother*self.qfn(df)
             c.hint = self.hint.union(other.hint)
+
+            c.hintParams =  self.hintParams.copy()
+            c.hintParams.update(other.hintParams)
+
             return c
         except:
             c = Constraint()
             c.qfn = lambda df: np.maximum(self.qfn(df), other.qfn(df))
             c.hint = self.hint.union(other.hint)
+
+            c.hintParams =  self.hintParams.copy()
+            c.hintParams.update(other.hintParams)
+
             return c
 
 
@@ -96,6 +114,8 @@ class Predicate(Constraint):
 
         self.hint = set([attr])
 
+        super(Predicate,self).__init__(self.hint)
+
 
     def _qfn(self, df):
 
@@ -138,8 +158,12 @@ class Shape(Constraint):
 
 class CellEdit(Constraint):
 
-    def __init__(self, source):
+    def __init__(self, source, metric={}):
         self.source = source
+
+        self.metric = {s: 'edit' for s in source.columns.values}
+        for m in metric:
+            self.metric[m] = metric[m]
 
     def _qfn(self, df):
         N = df.shape[0]
@@ -153,11 +177,19 @@ class CellEdit(Constraint):
             for j in range(p):
                 target = str(df.iloc[i,j])
                 ref = str(self.source.iloc[i,j])
+                cname = self.source.columns.values[j]
 
                 #print(target, ref, distance.levenshtein(target, ref, normalized=True))
                 
-                qfn_a[i] = distance.levenshtein(target, ref, normalized=True)/p + qfn_a[i]
-                #print(ref, target, distance.levenshtein(target, ref, normalized=True))
+                if self.metric[cname] == 'edit':
+                    qfn_a[i] = distance.levenshtein(target, ref, normalized=True)/p + qfn_a[i]
+                elif self.metric[cname] == 'jaccard':
+                    ttokens = set(target.lower().split())
+                    rtokens = set(ref.lower().split())
+                    qfn_a[i] = 1.0 - (len(ttokens.intersection(rtokens))+0.)/ (len(ttokens.union(rtokens))+0.)
+
+                    #if len(ttokens.intersection(rtokens)) == 0:
+                    #    qfn_a[i] = distance.levenshtein(target, ref, normalized=True)/p + qfn_a[i]
 
         return qfn_a
 
