@@ -1,6 +1,6 @@
 # Example 2: Truth Finding with AlphaClean
 
-There are often discrepancy on data acquired from different Web sources. A common data cleaning task is to reconcile these discrepencies into a cannonical source of truth. Example 2 `examples/example2.py` shows how this can be done in our framework. It will leverage the same basic tools as the toy example.
+There are often discrepancies in data acquired from different Web sources. A common data cleaning task is to reconcile these discrepencies into a cannonical source of truth. Example 2 `examples/example2.py` shows how this can be done in our framework. It will leverage the same basic tools as the toy example.
 
 We have a dataset of airline 1000 arrival and departure times:
 ```
