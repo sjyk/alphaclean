@@ -1,24 +1,35 @@
-
 """
-Core search routine
+Core search routine.
 """
 
+import numpy as np
+import datetime
 from generators import *
 from heapq import *
-import numpy as np
-
-import datetime
 
 
+DEFAULT_SOLVER_CONFIG = {}
+DEFAULT_SOLVER_CONFIG['pattern'] = {
+    'depth': 10,
+    'gamma': 5,
+    'edit': 1,
+    'operations': [Delete],
+    'similarity': {},
+    'w2v': 'resources/GoogleNews-vectors-negative300.bin'
+}
+DEFAULT_SOLVER_CONFIG['dependency'] = {
+    'depth': 10,
+    'gamma': 5,
+    'edit': 1,
+    'operations': [Swap],
+    'similarity': {},
+    'w2v': 'resources/GoogleNews-vectors-negative300.bin'
+}
 
-DEFAULT_SOLVER_CONFIG = {'pattern': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Delete], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'},
-                         'dependency': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Swap], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'}}
 
-
-def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
-
+def solve(df, patterns=[], dependencies=[], partitionOn=None,
+          config=DEFAULT_SOLVER_CONFIG):
     op = NOOP()
-
 
     if needWord2Vec(config):
         w2vp = loadWord2Vec(config['pattern']['w2v'])
@@ -27,19 +38,17 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
         w2vp = None
         w2vd = None
 
-
     config['pattern']['model'] = w2vp
     config['dependency']['model'] = w2vd
 
-
-    if partitionOn != None:
+    if partitionOn is not None:
         blocks = set(df[partitionOn].values)
 
         for i, b in enumerate(blocks):
 
-            print("Computing Block=",b, i ,"out of", len(blocks) )
+            print("Computing Block=", b, i, "out of", len(blocks))
 
-            dfc = df.loc[ df[partitionOn] == b ].copy()
+            dfc = df.loc[df[partitionOn] == b].copy()
             
             op1 = patternConstraints(dfc, patterns, config['pattern'])
 
@@ -47,9 +56,9 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
             
             op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
 
-            op = op * (op1*op2)
-    else:
+            op = op * (op1 * op2)
 
+    else:
         op1 = patternConstraints(df, patterns, config['pattern'])
         df = op1.run(df)
         op2 = dependencyConstraints(df, dependencies, config['dependency'])
@@ -65,10 +74,9 @@ def loadWord2Vec(filename):
 
 
 def needWord2Vec(config):
-    return ('semantic' in [config['pattern']['similarity'][k] for k in config['pattern']['similarity']]) or \
-            ('semantic' in [config['dependency']['similarity'][k] for k in config['dependency']['similarity']])
-
-
+    semantic_in_pattern = 'semantic' in config['pattern']['similarity']
+    semantic_in_dependency = 'semantic' in config['dependency']['similarity']
+    return semantic_in_pattern or semantic_in_dependency
 
 
 def patternConstraints(df, costFnList, config):
@@ -86,40 +94,33 @@ def patternConstraints(df, costFnList, config):
             df = d.run(df)
             op = op * d
 
-        op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
-                             inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
-                            word2vec=config['model'])
+        op = op * treeSearch(df, c, config['operations'],
+                             evaluations=config['depth'],
+                             inflation=config['gamma'],
+                             editCost=config['edit'],
+                             similarity=config['similarity'],
+                             word2vec=config['model'])
 
     return op
 
 
-
 def dependencyConstraints(df, costFnList, config):
-    
     op = NOOP()
 
     for c in costFnList:
 
-        op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
-                            inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
-                            word2vec=config['model'])
+        op = op * treeSearch(df, c, config['operations'],
+                             evaluations=config['depth'],
+                             inflation=config['gamma'],
+                             editCost=config['edit'],
+                             similarity=config['similarity'],
+                             word2vec=config['model'])
 
     return op    
 
 
-
-
-
-def treeSearch(df, 
-               costFn, 
-               operations, 
-               evaluations,
-               inflation,
-               editCost,
-               similarity,
-               word2vec):
-
-
+def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
+               similarity, word2vec):
     efn = CellEdit(df.copy(), similarity, word2vec).qfn
 
     best = (2.0, NOOP())
@@ -130,10 +131,8 @@ def treeSearch(df,
 
     bad_op_cache = set()
 
+    for _ in range(evaluations):
 
-    for i in range(evaluations):
-
-        
         value, op = best 
 
         #prune
@@ -143,7 +142,6 @@ def treeSearch(df,
         bfs_source = op.run(df).copy()
 
         p = ParameterSampler(bfs_source, costFn, operations)
-
 
         costEval = costFn.qfn(bfs_source)
         
@@ -156,7 +154,6 @@ def treeSearch(df,
 
             nextop = op * opbranch
 
-
             #disallow trasforms that cause an error
             try:
                 output = nextop.run(df)
@@ -164,11 +161,9 @@ def treeSearch(df,
                 bad_op_cache.add(opbranch.name)
                 continue
 
-
             #evaluate pruning
             if pruningRules(output):
                 continue
-
 
             costEval = costFn.qfn(output)
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
@@ -177,8 +172,6 @@ def treeSearch(df,
                 best = (n, nextop)
             
     return best[1]
-
-
 
 
 def pruningRules(output):
@@ -190,7 +183,3 @@ def pruningRules(output):
         return True 
 
     return False
-
-
-
-
