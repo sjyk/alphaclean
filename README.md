@@ -1,14 +1,14 @@
-# alphaclean v0.1
+# AlphaClean v0.1
 In many data science applications, data cleaning is effectively manual with ad-hoc, single-use scripts and programs.
 This practice is highly problematic for reproducibility (sharing analysis between researchers), interpretability (explaining the findings of a particular analysis), and scalability (replicating the analyses on larger corpora).
-Most existing relational data cleaning solutions are designed as stand-alone systems ? often coupled with a DBMS ? with poor support for languages widely in data science, such as Python and R.
+Most existing relational data cleaning solutions are designed as stand-alone systems -- often coupled with a DBMS -- with poor support for languages widely in data science, such as Python and R.
 
-We designed a Python library that declaratively synthesizes data cleaning programs. 
-AlphaClean is given a  specification of quality (e.g. integrity constraints or a statistical model the data must conform to) and a language of allowed data transformations, and it searches to find a sequence of transformations that best satisfies the quality specification.
+In order to address this problem, we designed a Python 2 library that declaratively synthesizes data cleaning programs. 
+AlphaClean is given a specification of quality (e.g. integrity constraints or a statistical model the data must conform to) and a language of allowed data transformations, then it searches to find a sequence of transformations that best satisfies the quality specification.
 The discovered sequence of transformations defines an intermediate representation, which can be easily transferred between languages or optimized with a compiler.
 
 ## Requirements
-As an initial research prototype, we have not yet designed alphaclean for deployment. It is a package that researchers can locally develop and test to evaluate different data cleaning approaches and techniques. The dependencies are:
+As an initial research prototype, we have not yet designed AlphaClean for deployment. It is a package that researchers can locally develop and test to evaluate different data cleaning approaches and techniques. The dependencies are:
 ```
 dateparser==0.6.0
 Distance==0.1.3
@@ -30,15 +30,10 @@ These can be installed by running the following code from the command line:
 pip install -r requirements.txt
 ```
 
-## Getting Started (A Simple Example)
+## Example 1: City Names & Abbreviations
+You can run this example on your own, by running `python examples/example1.py` from the `alphaclean` directory.
 
-The details of this initial tutorial are described in `examples/example1.py`.
-
-Data Scientists rarely get data that is immediately ready for analysis; some amount of pre-processing and curating is usually required.
-You've done the hard work in acquiring the data and putting a rough relational structure around it.
-It is our job to help you make the most of what you have collected!
-
-Let's start with a simple example of cities and acronyms:
+Let's start with a simple example of city names and abbreviations:
 ```
 data = [{'a': 'New Yorks',     'b': 'NY'},
         {'a': 'New York',      'b': 'NY'},
@@ -52,7 +47,7 @@ data = [{'a': 'New Yorks',     'b': 'NY'},
         {'a': 'Albany',        'b': 'AB'},
         {'a': 'San Mateo',     'b': 'SM'}]
 ```
-Notice that the city names are inconsistent (<b>New York</b> vs. <b>New Yorks</b>), as are the acronyms (<b>SF</b> vs. <b>SFO</b>, and <b>SM</b> vs. <b>SMO</b>). For a small dataset, it is possible to enumerate all of the fixes through visual inspection ? but what if the dataset is very large? 
+Notice that the city names are inconsistent (<b>New York</b> vs. <b>New Yorks</b>), as are the acronyms (<b>SF</b> vs. <b>SFO</b>, and <b>SM</b> vs. <b>SMO</b>). For a small dataset, it is possible to enumerate all of the fixes through visual inspection -- but what if the dataset is very large? 
 
 How would we automatically fix this with AlphaClean?
 First, we load the data into a Pandas DataFrame:
@@ -120,4 +115,5 @@ dcprogram = solve(df, dependencies=[constraint], config=config)
 ```
 
 ## Harder Examples
-The `docs` folder contains some harder, and more realistic, scenarios. You should run all the examples from the `alphaclean` folder e.g., `python examples/example1.py`. This is to keep the default paths for toy datasets and models consistent. You are of course free to modify these paths!
+The `docs` folder contains some harder, and more realistic, scenarios. You should run all the examples from the `alphaclean` folder with `python examples/example1.py`.
+This is to keep the default paths for toy datasets and models consistent, but you are of course free to modify these paths!
