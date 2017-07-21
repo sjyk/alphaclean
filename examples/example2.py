@@ -15,8 +15,6 @@ for i in range(2,8):
 from alphaclean.search import solve
 operation = solve(df, patterns, dependencies, partitionOn="1")
 
-print(operation.run(df))
-
 print(operation)
 
 
