@@ -1,0 +1,3 @@
+This are external resources trained on proprietary systems.
+
+http://automation.berkeley.edu/archive/GoogleNews-vectors-negative300.bin

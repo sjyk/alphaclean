@@ -20,8 +20,12 @@ from alphaclean.constraints import OneToOne
 constraint = OneToOne(["a"], ["b"])
 
 
-from alphaclean.search import solve
-dcprogram = solve(df, dependencies=[constraint])
+from alphaclean.search import solve, DEFAULT_SOLVER_CONFIG
+config = DEFAULT_SOLVER_CONFIG
+config['dependency']['depth'] = 3
+config['dependency']['similarity'] = {'a':'jaccard'}
+
+dcprogram = solve(df, dependencies=[constraint], config=config)
 
 print(dcprogram.run(df))
 
