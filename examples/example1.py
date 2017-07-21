@@ -21,7 +21,7 @@ constraint = OneToOne(["a"], ["b"])
 
 
 from alphaclean.search import solve
-dcprogram = solve(df, dependencies=[constraint], evaluations=3)
+dcprogram = solve(df, dependencies=[constraint])
 
 print(dcprogram.run(df))
 

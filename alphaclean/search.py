@@ -10,35 +10,68 @@ import numpy as np
 import datetime
 
 
-def solve(df, patterns=[], dependencies=[], partitionOn=None, evaluations=10):
+
+DEFAULT_SOLVER_CONFIG = {'pattern': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Delete], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'},
+                         'dependency': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Swap], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'}}
+
+
+def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
 
     op = NOOP()
+
+
+    if needWord2Vec(config):
+        w2vp = loadWord2Vec(config['pattern']['w2v'])
+        w2vd = loadWord2Vec(config['pattern']['w2v'])
+    else:
+        w2vp = None
+        w2vd = None
+
+
+    config['pattern']['model'] = w2vp
+    config['dependency']['model'] = w2vd
+
 
     if partitionOn != None:
         blocks = set(df[partitionOn].values)
 
         for i, b in enumerate(blocks):
+
             print("Computing Block=",b, i ,"out of", len(blocks) )
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
-            op1 = patternConstraints(dfc, patterns)
+            
+            op1 = patternConstraints(dfc, patterns, config['pattern'])
+
             dfc = op1.run(dfc)
-            op2 = dependencyConstraints(dfc, dependencies, evaluations=evaluations)
+            
+            op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
 
             op = op * (op1*op2)
     else:
 
-        op1 = patternConstraints(df, patterns)
+        op1 = patternConstraints(df, patterns, config['pattern'])
         df = op1.run(df)
-        op2 = dependencyConstraints(df, dependencies, evaluations=evaluations)
+        op2 = dependencyConstraints(df, dependencies, config['dependency'])
 
         op = op * (op1*op2)
 
     return op
 
 
+def loadWord2Vec(filename):
+    from gensim.models.keyedvectors import KeyedVectors
+    return KeyedVectors.load_word2vec_format(filename, binary=True)
 
-def patternConstraints(df, costFnList):
+
+def needWord2Vec(config):
+    return ('semantic' in [config['pattern']['similarity'][k] for k in config['pattern']['similarity']]) or \
+            ('semantic' in [config['dependency']['similarity'][k] for k in config['dependency']['similarity']])
+
+
+
+
+def patternConstraints(df, costFnList, config):
     op = NOOP()
 
     for c in costFnList:
@@ -53,22 +86,23 @@ def patternConstraints(df, costFnList):
             df = d.run(df)
             op = op * d
 
-        op = op * treeSearch(df, c, [Delete], evaluations=df.shape[0])
+        op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+                             inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
+                            word2vec=config['model'])
 
     return op
 
 
-def dependencyConstraints(df, costFnList, evaluations=10, inflation=5, predicate_granularity=2, editCost=0.1):
+
+def dependencyConstraints(df, costFnList, config):
     
     op = NOOP()
 
     for c in costFnList:
 
-        op = op * treeSearch(df, c, [Delete, Swap], 
-                            evaluations=evaluations, 
-                            inflation=inflation, 
-                            predicate_granularity=predicate_granularity,
-                            editCost=editCost)
+        op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+                            inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
+                            word2vec=config['model'])
 
     return op    
 
@@ -79,24 +113,16 @@ def dependencyConstraints(df, costFnList, evaluations=10, inflation=5, predicate
 def treeSearch(df, 
                costFn, 
                operations, 
-               init=NOOP(),
-               evaluations=10,
-               inflation=5,
-               predicate_granularity=2,
-               editCost=0):
+               evaluations,
+               inflation,
+               editCost,
+               similarity,
+               word2vec):
 
 
-    efn = CellEdit(df.copy(), {'contbr_occupation':'semantic'}).qfn
-    #efn = CellEdit(df.copy()).qfn
-
-    now = datetime.datetime.now()
+    efn = CellEdit(df.copy(), similarity, word2vec).qfn
 
     best = (2.0, NOOP())
-
-    #heap = []
-
-    #heappush(heap, (init.depth + 1, init ) )
-
 
     branch_hash = set()
     branch_value = hash(str(df.values))
@@ -107,12 +133,8 @@ def treeSearch(df,
 
     for i in range(evaluations):
 
-        #if len(heap) == 0:
-        #    return best[1]
-
-        #print(i)
         
-        value, op = best #heappop(heap)[0:2]
+        value, op = best 
 
         #prune
         if (value-op.depth) > best[0]*inflation:
@@ -120,20 +142,12 @@ def treeSearch(df,
 
         bfs_source = op.run(df).copy()
 
-        p = ParameterSampler(bfs_source, costFn, operations, predicate_granularity)
+        p = ParameterSampler(bfs_source, costFn, operations)
 
 
         costEval = costFn.qfn(bfs_source)
-        #opDirtyIndices = set(np.squeeze(np.argwhere(costEval > 0),axis=1).tolist())
-
-        #orthogonal_fixes = set()
-        #orthogonal_fixes_op = []
-
-        print(i, len(p.getAllOperations()))
-
+        
         for l, opbranch in enumerate(p.getAllOperations()):
-
-            #print(l)
 
             #prune bad ops
             if opbranch.name in bad_op_cache or \
@@ -145,12 +159,7 @@ def treeSearch(df,
 
             #disallow trasforms that cause an error
             try:
-                
-                #now = datetime.datetime.now()
                 output = nextop.run(df)
-                #print((datetime.datetime.now()-now).total_seconds(), df.shape, len(nextop.provenance))
-
-
             except:
                 bad_op_cache.add(opbranch.name)
                 continue
@@ -161,85 +170,12 @@ def treeSearch(df,
                 continue
 
 
-            #branch_value = hash(str(output.values))
-
-            #optimization 1 (branch hashing)
-            #if branch_value in branch_hash:
-            #    continue
-            #else:
-            #    branch_hash.add(branch_value)
-
-            #optimization 2 (value pruning)
-            #now = datetime.datetime.now()
-
             costEval = costFn.qfn(output)
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
 
-            #print((datetime.datetime.now()-now).total_seconds())
-            
-            #if '/' in opbranch.name:
-            #    print(n,i, opbranch.name, best[0])
-
-            
-            #if i == 0:
-            #    print(output)
-            #    print(n, opbranch.name, best[0])
-
-            #dirtyIndices = set(np.squeeze(np.argwhere(costEval > 0),axis=1).tolist())
-
-
-            #branch merging--best dominating fix if one exists
-            #if len(opDirtyIndices-dirtyIndices) > 0 and dirtyIndices <= opDirtyIndices:
-            #    orthogonal_fixes_op.append((n, opbranch, opDirtyIndices-dirtyIndices))
-                #print("hi")
-                #print(i, opbranch.name, opDirtyIndices-dirtyIndices)
-                #orthogonal_fixes = orthogonal_fixes.union(opDirtyIndices-dirtyIndices)
-                #print(n, )
-
-            #print(n, best[0], opbranch.name)
             if n < best[0]:
-                print(best)
                 best = (n, nextop)
             
-            """
-            if len(heap) == 0:
-            
-                #heappush(heap, (nextop.depth + n, nextop))
-
-                best = (n, nextop)
-            
-            else:
-
-                heappush(heap, (nextop.depth + n, nextop))
-            """
-
-                
-
-
-        """
-        #best dominating fix
-        if len(orthogonal_fixes_op) > 0:
-            n, opbranch = sorted(orthogonal_fixes_op)[0][0:2]
-
-            #print([(n,o.name) for n,o,_ in orthogonal_fixes_op])
-
-            nextop = op * opbranch
-            heap = []
-            heappush(heap, (nextop.depth + n, nextop) )
-            best = (n, nextop)
-        """
-
-
-
-        #heappush(heap, (nextop.depth + n, nextop) )
-
-
-
-    #print((datetime.datetime.now() - now).total_seconds())
-
-    #print(heap)
-
-    print(best[1].name)
     return best[1]
 
 

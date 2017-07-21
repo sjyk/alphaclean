@@ -1,14 +1,10 @@
 """
 This module defines a bunch of different types of constraints
 """
-from gensim.models.keyedvectors import KeyedVectors
-
 import numpy as np
 import distance 
 import time
 import re
-
-GLOBAL_WORDS = KeyedVectors.load_word2vec_format('resources/GoogleNews-vectors-negative300.bin', binary=True)
 
 
 class Constraint(object):
@@ -76,6 +72,7 @@ class FD(Constraint):
         self.target = target
 
         self.hint = set(source + target)
+        self.hintParams = {}
 
 
     def _qfn(self, df):
@@ -165,7 +162,7 @@ class Shape(Constraint):
 
 class CellEdit(Constraint):
 
-    def __init__(self, source, metric={}):
+    def __init__(self, source, metric={}, w2vModel=None):
         self.source = source
 
         self.metric = {s: 'edit' for s in source.columns.values}
@@ -178,7 +175,7 @@ class CellEdit(Constraint):
             if metric[m] == 'semantic':
                 semantic = True
 
-        self.word_vectors = GLOBAL_WORDS
+        self.word_vectors = w2vModel
 
         self.cache = {}
 
@@ -249,7 +246,7 @@ class CellEdit(Constraint):
 
                 #print(self.metric[cname], j , target, ref, self.source.columns.values, cname)
 
-        print(qfn_a)
+        #print(qfn_a)
         return qfn_a
 
 
