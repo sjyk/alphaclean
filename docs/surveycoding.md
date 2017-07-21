@@ -1,6 +1,6 @@
 # Example 3: Survey Coding with AlphaClean
  Survey coding is the process of taking the open-ended responses and categorizing them into groups. In this example, we have a dataset of 1000 US 2016 presidential election contributions and want to categorize the occupations of the contributors into groups. 
- Example 3 `examples/example3.py` shows how this can be done in our framework. 
+ Example 3 `examples/example3.py` shows how this can be done in our framework. This example requires at least 8GB of available memory.
 
 ## Loading the data and initial data analysis
 First, let's load the data into the system:
@@ -69,6 +69,8 @@ config['dependency']['operations'] = [Swap, Delete]
 ```
 
 ## Running the solver
+This will take a while to run because it has to load the entire Word2Vec model into memory.
+
 ```
 operation = solve(df, [], dependencies=[DictValue('contbr_occupation', codes)], partitionOn='contbr_nm', config=config)
 ```
