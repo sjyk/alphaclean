@@ -14,11 +14,16 @@ dateparser==0.6.0
 Distance==0.1.3
 numpy==1.12.1
 pandas==0.20.1
+pyparsing==2.2.0
+python-dateutil==2.6.0
 pytz==2017.2
+regex==2017.7.11
+ruamel.ordereddict==0.4.9
+ruamel.yaml==0.15.18
 scikit-learn==0.18.1
 scipy==0.19.0
 six==1.10.0
-sklearn==0.0
+gensim==2.2.0
 ```
 These can be installed with:
 ```
