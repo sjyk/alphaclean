@@ -8,6 +8,8 @@ import dateparser
 import time
 import re
 
+import datetime
+
 
 """
 Allows lazy composition of Op functions
@@ -26,7 +28,13 @@ class Operation(object):
     This runs the operation
     """
     def run(self, df):
+
+
+        #now = datetime.datetime.now()
+
         df_copy = df.copy(deep=True)
+
+        #print((datetime.datetime.now()-now).total_seconds())
 
         return self.runfn(df_copy)
 
@@ -36,7 +44,7 @@ class Operation(object):
     def __mul__(self, other):
         new_runfn = lambda df, a=self, b=other: b.runfn(a.runfn(df))
         new_op = Operation(new_runfn, self.depth + other.depth, self.provenance + other.provenance)
-        new_op.name = self.name + "\n" + other.name
+        new_op.name = (self.name + "\n" + other.name).strip()
 
         return new_op
 
@@ -180,11 +188,15 @@ class Swap(ParametrizedOperation):
                predicate=logical_predicate, 
                v=value):
 
-            N = df.shape[0]
+            def __internal(row):
+                if predicate(row):
+                    return v 
+                else:
+                    return row[column]
 
-            for i in range(N):
-                if predicate(df.iloc[i,:]): #type issues
-                    df[column].iloc[i] = v
+            df[column] = df.apply(lambda row: __internal(row), axis=1)
+
+            #print(df.apply(lambda row: __internal(row), axis=1))
 
             return df
 
@@ -212,11 +224,13 @@ class Delete(ParametrizedOperation):
                column=column, 
                predicate=logical_predicate):
 
-            N = df.shape[0]
+            def __internal(row):
+                if  predicate(row):
+                    return None
+                else:
+                    return row[column]
 
-            for i in range(N):
-                if predicate(df.iloc[i,:]): #type issues
-                    df[column].iloc[i] = None
+            df[column] = df.apply(lambda row: __internal(row), axis=1)
 
             return df
 
@@ -225,38 +239,6 @@ class Delete(ParametrizedOperation):
         self.provenance = [self.name]
 
         super(Delete,self).__init__(fn, ['column', 'predicate'])
-
-
-
-class TR(ParametrizedOperation):
-
-    paramDescriptor = {'column': ParametrizedOperation.COLUMN,
-                       'substr1': ParametrizedOperation.SUBSTR, 
-                       'substr2': ParametrizedOperation.SUBSTR}
-
-
-    def __init__(self, column, substr1, substr2):
-
-        def fn(df, 
-               column=column, 
-               substr1=substr1,
-               substr2=substr2):
-
-            N = df.shape[0]
-
-            for i in range(N):
-                if df[column].iloc[i] != None:
-
-                    df[column].iloc[i] = str(df[column].iloc[i]).replace(substr1, substr2)
-
-            return df
-
-
-        self.name = 'df = tr(df,'+formatString(column)+','+formatString(substr1)+','+formatString(substr2)+')'
-        self.provenance = [self.name]
-
-        super(TR,self).__init__(fn, ['column', 'substr1', 'substr2'])
-
 
 
 

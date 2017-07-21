@@ -1,10 +1,15 @@
 """
 This module defines a bunch of different types of constraints
 """
+from gensim.models.keyedvectors import KeyedVectors
+
 import numpy as np
 import distance 
 import time
 import re
+
+GLOBAL_WORDS = KeyedVectors.load_word2vec_format('resources/GoogleNews-vectors-negative300.bin', binary=True)
+
 
 class Constraint(object):
 
@@ -130,6 +135,9 @@ class Predicate(Constraint):
 
             elif self.expr(val):
                 qfn_a[i] = 0
+            #else:
+
+                #print(val, self.codebook)
 
         return qfn_a
 
@@ -155,15 +163,25 @@ class Shape(Constraint):
         return qfn_a
 
 
-
 class CellEdit(Constraint):
 
     def __init__(self, source, metric={}):
         self.source = source
 
         self.metric = {s: 'edit' for s in source.columns.values}
+
+        semantic = False
+
         for m in metric:
             self.metric[m] = metric[m]
+
+            if metric[m] == 'semantic':
+                semantic = True
+
+        self.word_vectors = GLOBAL_WORDS
+
+        self.cache = {}
+
 
     def _qfn(self, df):
         N = df.shape[0]
@@ -179,18 +197,59 @@ class CellEdit(Constraint):
                 ref = str(self.source.iloc[i,j])
                 cname = self.source.columns.values[j]
 
-                #print(target, ref, distance.levenshtein(target, ref, normalized=True))
-                
+                #some short circuits so you don't have to eval
+                if target == ref:
+                    continue
+                elif df.iloc[i,j] == None:
+                    continue
+                elif target == '' and ref != target:
+                    qfn_a[i] = 1.0/p + qfn_a[i]
+                    continue 
+                elif ref == '' and ref != target:
+                    qfn_a[i] = 1.0/p + qfn_a[i]
+                    continue
+
+
+                ttokens = set(target.lower().split())
+                rtokens = set(ref.lower().split())
+
                 if self.metric[cname] == 'edit':
+
                     qfn_a[i] = distance.levenshtein(target, ref, normalized=True)/p + qfn_a[i]
+                
                 elif self.metric[cname] == 'jaccard':
-                    ttokens = set(target.lower().split())
-                    rtokens = set(ref.lower().split())
-                    qfn_a[i] = 1.0 - (len(ttokens.intersection(rtokens))+0.)/ (len(ttokens.union(rtokens))+0.)
+                    
+                    qfn_a[i] = (1.0 - (len(ttokens.intersection(rtokens))+0.)/ (len(ttokens.union(rtokens))+0.))/p + qfn_a[i]
 
-                    #if len(ttokens.intersection(rtokens)) == 0:
-                    #    qfn_a[i] = distance.levenshtein(target, ref, normalized=True)/p + qfn_a[i]
+                elif self.metric[cname] == 'semantic':
 
+                    sim = []
+                    #print(j, cname, np.mean(sim))
+
+                    for t in ttokens:
+                        for r in rtokens:
+
+                            try:
+                                similarity = (self.word_vectors.similarity(t,r)+ 1.0)/2
+                                #print(t,r)
+                            except:
+                                similarity = 0
+
+                            sim.append(similarity)
+
+                    #print(target,ref, np.mean(sim))
+
+                    if len(sim) > 0:
+                        qfn_a[i] = (1 - np.mean(sim))/p + qfn_a[i]
+                    else:
+                        qfn_a[i] = 1.0/p + qfn_a[i]
+
+
+
+
+                #print(self.metric[cname], j , target, ref, self.source.columns.values, cname)
+
+        print(qfn_a)
         return qfn_a
 
 

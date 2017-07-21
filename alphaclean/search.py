@@ -58,13 +58,13 @@ def patternConstraints(df, costFnList):
     return op
 
 
-def dependencyConstraints(df, costFnList, evaluations=10, inflation=5, predicate_granularity=2, editCost=1):
+def dependencyConstraints(df, costFnList, evaluations=10, inflation=5, predicate_granularity=2, editCost=0.1):
     
     op = NOOP()
 
     for c in costFnList:
 
-        op = op * treeSearch(df, c, [Swap], 
+        op = op * treeSearch(df, c, [Delete, Swap], 
                             evaluations=evaluations, 
                             inflation=inflation, 
                             predicate_granularity=predicate_granularity,
@@ -86,7 +86,8 @@ def treeSearch(df,
                editCost=0):
 
 
-    efn = CellEdit(df.copy(), {'contbr_occupation':'jaccard'}).qfn
+    efn = CellEdit(df.copy(), {'contbr_occupation':'semantic'}).qfn
+    #efn = CellEdit(df.copy()).qfn
 
     now = datetime.datetime.now()
 
@@ -128,9 +129,11 @@ def treeSearch(df,
         #orthogonal_fixes = set()
         #orthogonal_fixes_op = []
 
-        #print(i, p.getAllOperations())
+        print(i, len(p.getAllOperations()))
 
-        for opbranch in p.getAllOperations():
+        for l, opbranch in enumerate(p.getAllOperations()):
+
+            #print(l)
 
             #prune bad ops
             if opbranch.name in bad_op_cache or \
@@ -143,11 +146,12 @@ def treeSearch(df,
             #disallow trasforms that cause an error
             try:
                 
-                output = nextop.run(df.copy())
+                #now = datetime.datetime.now()
+                output = nextop.run(df)
+                #print((datetime.datetime.now()-now).total_seconds(), df.shape, len(nextop.provenance))
+
 
             except:
-                print(opbranch.name)
-                output = nextop.run(df.copy())
                 bad_op_cache.add(opbranch.name)
                 continue
 
@@ -166,9 +170,12 @@ def treeSearch(df,
             #    branch_hash.add(branch_value)
 
             #optimization 2 (value pruning)
+            #now = datetime.datetime.now()
+
             costEval = costFn.qfn(output)
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
 
+            #print((datetime.datetime.now()-now).total_seconds())
             
             #if '/' in opbranch.name:
             #    print(n,i, opbranch.name, best[0])
@@ -177,11 +184,6 @@ def treeSearch(df,
             #if i == 0:
             #    print(output)
             #    print(n, opbranch.name, best[0])
-
-            #return early if found
-            if n == 0:
-                #print(i)
-                return nextop
 
             #dirtyIndices = set(np.squeeze(np.argwhere(costEval > 0),axis=1).tolist())
 
@@ -196,6 +198,7 @@ def treeSearch(df,
 
             #print(n, best[0], opbranch.name)
             if n < best[0]:
+                print(best)
                 best = (n, nextop)
             
             """
@@ -236,6 +239,7 @@ def treeSearch(df,
 
     #print(heap)
 
+    print(best[1].name)
     return best[1]
 
 

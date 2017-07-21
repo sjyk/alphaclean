@@ -36,7 +36,7 @@ In our misc folder, we have a helper method that builds a "code book":
 ```
 from alphaclean.misc import generateTokenCodebook
 
-print(generateTokenCodebook(df,'contbr_occupation'))
+print(generateCodebook(df,'contbr_occupation'))
 ```
 
 The result looks something like this:

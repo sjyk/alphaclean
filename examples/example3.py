@@ -2,17 +2,18 @@ import environ
 import pandas as pd
 from alphaclean.search import *
 
-df = pd.read_csv('datasets/elections.txt', quotechar='\"', index_col=False, nrows=50)
+df = pd.read_csv('datasets/elections.txt', quotechar='\"', index_col=False)
 
-print(df.iloc[0,:])
+#print(df.iloc[0,:])
 
-from alphaclean.misc import generateTokenCodebook
+from alphaclean.misc import generateCodebook
 
-print(generateTokenCodebook(df,'contbr_occupation'))
+#print(generateTokenCodebook(df,'contbr_occupation'))
 
-codes = generateTokenCodebook(df,'contbr_occupation')
+codes = generateCodebook(df,'contbr_occupation')
+print(codes)
 
-operation = solve(df, [Pattern("contbr_zip", '[0-9]+')], dependencies=[DictValue('contbr_occupation', codes)], partitionOn='contbr_nm')
+operation = solve(df, [], dependencies=[DictValue('contbr_occupation', codes)], partitionOn='contbr_nm')
 
 print(operation)
 
