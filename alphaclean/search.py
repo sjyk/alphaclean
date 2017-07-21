@@ -43,6 +43,7 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None,
 
     if partitionOn is not None:
         blocks = set(df[partitionOn].values)
+        #blocks = set(['UA-1006-BOG-IAH'])
 
         for i, b in enumerate(blocks):
 
