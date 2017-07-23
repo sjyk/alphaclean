@@ -288,6 +288,22 @@ class Date(Predicate):
         super(Date, self).__init__(attr, lambda x, p=pattern: timePatternCheck(x,p))
 
 
+class Float(Predicate):
+
+    def __init__(self, attr):
+
+        self.attr = attr
+
+        def floatPatternCheck(x):
+
+            if x == None or isinstance(x, float):
+                return True
+            else:
+                return False
+
+        super(Float, self).__init__(attr, lambda x: floatPatternCheck(x))
+
+
 
 class Pattern(Predicate):
 
@@ -309,3 +325,67 @@ class Pattern(Predicate):
 
 
         super(Pattern, self).__init__(attr, lambda x, p=pattern: timePatternCheck(x,p))
+
+
+
+
+
+class Parameteric(Constraint):
+
+    def __init__(self, attr, tolerance=5):
+
+        self.tolerance = tolerance
+        self.attr = attr
+        self.hint = set([attr])
+        self.hintParams = {}
+
+        
+        super(Parameteric, self).__init__(attr)
+
+    def _qfn(self, df): 
+        N = df.shape[0]
+        qfn_a = np.zeros((N,))
+        vals = df[self.attr].dropna().values
+        mean = np.mean(vals)
+        std = np.std(vals)
+
+        for i in range(N):
+            val = df[self.attr].iloc[i]
+
+            if np.isnan(val) or np.abs(val-mean) < std*self.tolerance:
+                qfn_a[i] = 0.0
+            else:
+                qfn_a[i] = 1.0
+
+        return qfn_a
+
+
+class NonParametric(Constraint):
+
+    def __init__(self, attr, tolerance=5):
+
+        self.tolerance = tolerance
+        self.attr = attr
+        self.hint = set([attr])
+        self.hintParams = {}
+
+        
+        super(NonParametric, self).__init__(attr)
+
+    def _qfn(self, df): 
+        N = df.shape[0]
+        qfn_a = np.zeros((N,))
+        vals = df[self.attr].dropna().values
+        mean = np.median(vals)
+        std = np.median(np.abs(vals-mean))
+
+        for i in range(N):
+            val = df[self.attr].iloc[i]
+
+            if np.isnan(val) or np.abs(val-mean) < std*self.tolerance:
+                qfn_a[i] = 0.0
+            else:
+                qfn_a[i] = 1.0
+
+        return qfn_a
+

@@ -75,9 +75,6 @@ class ParameterSampler(object):
 
                 parameters.append( (op, product(*grid), orig))
 
-
-        #print(parameters)
-
         return parameters
 
 

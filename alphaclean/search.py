@@ -31,6 +31,8 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
     config['pattern']['model'] = w2vp
     config['dependency']['model'] = w2vd
 
+    op1 = patternConstraints(df, patterns, config['pattern'])
+    df = op1.run(df)
 
     if partitionOn != None:
         blocks = set(df[partitionOn].values)
@@ -42,17 +44,11 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
             
-            op1 = patternConstraints(dfc, patterns, config['pattern'])
-
-            dfc = op1.run(dfc)
-            
             op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
 
             op = op * (op1*op2)
     else:
 
-        op1 = patternConstraints(df, patterns, config['pattern'])
-        df = op1.run(df)
         op2 = dependencyConstraints(df, dependencies, config['dependency'])
 
         op = op * (op1*op2)
@@ -84,6 +80,11 @@ def patternConstraints(df, costFnList, config):
 
         elif isinstance(c,Pattern):
             d = PatternCast(c.attr, c.pattern)
+            df = d.run(df)
+            op = op * d
+
+        elif isinstance(c, Float):
+            d = FloatCast(c.attr)
             df = d.run(df)
             op = op * d
 
@@ -133,7 +134,6 @@ def treeSearch(df,
 
 
     for i in range(evaluations):
-
         
         value, op = best 
 

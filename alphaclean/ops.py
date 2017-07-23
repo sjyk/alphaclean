@@ -101,69 +101,6 @@ class ParametrizedOperation(Operation):
                 raise ValueError("Parameter " + str(p) + " has an invalid descriptor")
 
 
-
-"""
-Potter's wheel operations
-"""
-
-class Split(ParametrizedOperation):
-
-    paramDescriptor = {'column': ParametrizedOperation.COLUMN, 'delim': ParametrizedOperation.SUBSTR}
-
-    def __init__(self, column, delim):
-
-        def fn(df, column=column, delim=delim):
-
-            args = {}
-
-            #get the split length
-            length = df[column].map(lambda x: len(x.split(delim))).max()
-
-            def safeSplit(s, delim, index):
-                splitArray = s.split(delim)
-                if index >= len(splitArray):
-                    return None
-                else:
-                    return splitArray[index]
-
-            for l in range(length):
-                key = column+str(l)
-
-                if column+str(l) in df.columns.values:
-                    key = key + '_1' 
-
-                args[key] = df[column].map(lambda x, index=l: safeSplit(x, delim, l))
-
-            return df.assign(**args)
-
-
-        self.name = 'df = split(df,'+formatString(column)+','+formatString(delim)+')'
-        self.provenance = [self.name]
-
-        super(Split,self).__init__(fn, ['column', 'delim'])
-
-
-class Merge(ParametrizedOperation):
-
-    paramDescriptor = {'column1': ParametrizedOperation.COLUMN, 
-                       'column2': ParametrizedOperation.COLUMN}
-
-    def __init__(self, column1, column2):
-
-        def fn(df, c1=column1, c2=column2):
-
-            df[c1] = df[c2].copy()
-
-            return df
-
-
-        self.name = 'df = merge(df,'+formatString(column1)+','+formatString(column2)+')'
-        self.provenance = [self.name]
-
-        super(Merge,self).__init__(fn, ['column1', 'column2'])
-
-
-
 """
 Find an replace operation
 """
@@ -314,6 +251,30 @@ class PatternCast(ParametrizedOperation):
 
 
 
+class FloatCast(ParametrizedOperation):
+
+    paramDescriptor = {'column': ParametrizedOperation.COLUMN}
+
+
+    def __init__(self, column):
+
+        def fn(df, column=column):
+
+            def __internal(row):
+                try:
+                    return float(row[column])
+                except:
+                    return None
+
+            df[column] = df.apply(lambda row: __internal(row), axis=1)
+
+            return df
+
+
+        self.name = 'df = numparse(df,'+formatString(column)+')'
+        self.provenance = [self.name]
+
+        super(FloatCast, self).__init__(fn, ['column'])
 
 
 

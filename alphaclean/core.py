@@ -80,12 +80,24 @@ class Dataset:
         vals_outside = set()
 
         for i in range(self.df.shape[0]):
-            if q_array[i] == 1.0:
-                vals_inside.add(self.df[col].iloc[i])
-            else:
-                vals_outside.add(self.df[col].iloc[i])
 
-        return [(col, set([p])) for p in vals_inside.difference(vals_outside)]
+            val = self.df[col].iloc[i]
+
+            if val != val:
+                val = 'NaN'
+
+            if q_array[i] == 1.0:
+                vals_inside.add(val)
+            else:
+                vals_outside.add(val)
+
+        def _translateNaN(x):
+            if x == 'NaN' or x != x:
+                return np.nan
+            else:
+                return x
+
+        return [(col, set([ _translateNaN(p)])) for p in vals_inside.difference(vals_outside)]
 
 
 
