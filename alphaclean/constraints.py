@@ -20,11 +20,11 @@ class Constraint(object):
             pass
 
     def qfn(self, df):
-        try:
+        #try:
             return self._qfn(df)
-        except:
-            N = df.shape[0]
-            return np.ones((N,))
+        #except:
+        #    N = df.shape[0]
+        #    return np.ones((N,))
 
 
     def _qfn(self, df):
@@ -290,9 +290,10 @@ class Date(Predicate):
 
 class Float(Predicate):
 
-    def __init__(self, attr):
+    def __init__(self, attr, nrange=[-np.inf, np.inf]):
 
         self.attr = attr
+        self.range = nrange
 
         def floatPatternCheck(x):
 
@@ -340,7 +341,7 @@ class Parameteric(Constraint):
         self.hintParams = {}
 
         
-        super(Parameteric, self).__init__(attr)
+        super(Parameteric, self).__init__(self.hint)
 
     def _qfn(self, df): 
         N = df.shape[0]
@@ -370,7 +371,7 @@ class NonParametric(Constraint):
         self.hintParams = {}
 
         
-        super(NonParametric, self).__init__(attr)
+        super(NonParametric, self).__init__(self.hint)
 
     def _qfn(self, df): 
         N = df.shape[0]
@@ -389,3 +390,47 @@ class NonParametric(Constraint):
 
         return qfn_a
 
+
+
+class Correlation(Constraint):
+
+    def __init__(self, attrs, ctype="positive"):
+
+        self.ctype = ctype
+        self.attrs = attrs
+        self.hint = set(attrs)
+        self.hintParams = {}
+
+        
+        super(Correlation, self).__init__(self.hint)
+
+
+    def _qfn(self, df): 
+        N = df.shape[0]
+        qfn_a = np.zeros((N,))
+
+        x = df[self.attrs[0]].values
+        y = df[self.attrs[1]].values
+
+        mx = np.median(x[~np.isnan(x)])
+        my = np.median(y[~np.isnan(y)])
+
+        for i in range(N):
+            val1 = df[self.attrs[0]].iloc[i] - mx
+            val2 = df[self.attrs[1]].iloc[i] - my
+
+            if np.isnan(val1) or np.isnan(val2):
+                continue
+
+            if self.ctype == 'positive':
+                if np.sign(val1*val2) < 0:
+                    qfn_a[i] = np.abs(val1) + np.abs(val2)
+            else:
+                if np.sign(val1*val2) > 0:
+                    qfn_a[i] = math.abs(val1) + math.abs(val2)
+
+        #normalize
+        if np.sum(qfn_a) > 0:
+            qfn_a = qfn_a/np.max(qfn_a)
+
+        return qfn_a

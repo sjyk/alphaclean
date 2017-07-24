@@ -84,7 +84,7 @@ def patternConstraints(df, costFnList, config):
             op = op * d
 
         elif isinstance(c, Float):
-            d = FloatCast(c.attr)
+            d = FloatCast(c.attr, c.range)
             df = d.run(df)
             op = op * d
 
@@ -147,6 +147,8 @@ def treeSearch(df,
 
 
         costEval = costFn.qfn(bfs_source)
+
+        print(len(p.getAllOperations()))
         
         for l, opbranch in enumerate(p.getAllOperations()):
 
@@ -162,6 +164,7 @@ def treeSearch(df,
             try:
                 output = nextop.run(df)
             except:
+                output = nextop.run(df)
                 bad_op_cache.add(opbranch.name)
                 continue
 

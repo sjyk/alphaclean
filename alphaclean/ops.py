@@ -114,7 +114,7 @@ class Swap(ParametrizedOperation):
 
         #print("a,b", column, value)
 
-        logical_predicate = lambda row: row[predicate[0]] in predicate[1]
+        logical_predicate = lambda row: (row[predicate[0]] in predicate[1]) and (tuple(row.dropna().values) in predicate[2])
 
         self.column = column
         self.predicate = predicate
@@ -126,6 +126,7 @@ class Swap(ParametrizedOperation):
                v=value):
 
             def __internal(row):
+                #print(tuple(row.values), predicate(row))
                 if predicate(row):
                     return v 
                 else:
@@ -138,7 +139,7 @@ class Swap(ParametrizedOperation):
             return df
 
 
-        self.name = 'df = swap(df,'+formatString(column)+','+formatString(value)+','+str(predicate)+')'
+        self.name = 'df = swap(df,'+formatString(column)+','+formatString(value)+','+str(predicate[0:2])+')'
         self.provenance = [self.name]
 
         super(Swap,self).__init__(fn, ['column', 'predicate', 'value'])
@@ -155,14 +156,17 @@ class Delete(ParametrizedOperation):
     def __init__(self, column, predicate):
 
 
-        logical_predicate = lambda row: row[predicate[0]] in predicate[1]
+        logical_predicate = lambda row: (row[predicate[0]] in predicate[1]) and (tuple(row.dropna().values) in predicate[2])
+
+        #print(predicate[1])
 
         def fn(df, 
                column=column, 
                predicate=logical_predicate):
 
             def __internal(row):
-                if  predicate(row):
+                if predicate(row):
+                    #print(row["4"], row["81"])
                     return None
                 else:
                     return row[column]
@@ -172,7 +176,7 @@ class Delete(ParametrizedOperation):
             return df
 
 
-        self.name = 'df = delete(df,'+formatString(column)+','+str(predicate)+')'
+        self.name = 'df = delete(df,'+formatString(column)+','+str(predicate[0:2])+')'
         self.provenance = [self.name]
 
         super(Delete,self).__init__(fn, ['column', 'predicate'])
@@ -256,13 +260,17 @@ class FloatCast(ParametrizedOperation):
     paramDescriptor = {'column': ParametrizedOperation.COLUMN}
 
 
-    def __init__(self, column):
+    def __init__(self, column, nrange):
 
-        def fn(df, column=column):
+        def fn(df, column=column, r=nrange):
 
             def __internal(row):
                 try:
-                    return float(row[column])
+                    value = float(row[column])
+                    if value >= r[0] and value <= r[1]:
+                        return value
+                    else:
+                        return None 
                 except:
                     return None
 

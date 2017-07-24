@@ -78,16 +78,20 @@ class Dataset:
         q_array = np.sign(qfn(self.df))
         vals_inside = set()
         vals_outside = set()
+        tuples_inside = set()
 
         for i in range(self.df.shape[0]):
 
             val = self.df[col].iloc[i]
+
+
 
             if val != val:
                 val = 'NaN'
 
             if q_array[i] == 1.0:
                 vals_inside.add(val)
+                tuples_inside.add(tuple(self.df.iloc[i].dropna()))
             else:
                 vals_outside.add(val)
 
@@ -97,7 +101,10 @@ class Dataset:
             else:
                 return x
 
-        return [(col, set([ _translateNaN(p)])) for p in vals_inside.difference(vals_outside)]
+
+        #print('--',tuples_inside)
+
+        return [(col, set([ _translateNaN(p)]), tuples_inside) for p in vals_inside]
 
 
 
