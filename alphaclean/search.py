@@ -51,11 +51,11 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
             op = op * (op1*op2)
     else:
 
-        op1 = patternConstraints(dfc, patterns, config['pattern'])
+        op1 = patternConstraints(df, patterns, config['pattern'])
 
-        dfc = op1.run(dfc)
+        dfc = op1.run(df)
 
-        op2 = dependencyConstraints(df, dependencies, config['dependency'])
+        op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
 
         op = op * (op1*op2)
 
@@ -107,6 +107,8 @@ def dependencyConstraints(df, costFnList, config):
     op = NOOP()
 
     for c in costFnList:
+
+        print(c)
 
         op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
                             inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\

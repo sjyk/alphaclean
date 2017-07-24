@@ -1,80 +1,59 @@
 import environ
 import pandas as pd
+import numpy as np
 
+#Load the rain fall data
 f = open('datasets/all_villages_2010-16.csv','r')
-data = [  { str(i):j for i,j in enumerate(l.strip().split(',')) } for l in f.readlines()[2:]]
+datafile = f.readlines()
+
+data = [  { str(i):j for i,j in enumerate(l.strip().split(',')) } for l in datafile[2:]]
+locations = [  { str(i):j for i,j in enumerate(l.strip().split(',')) if i >= 3} for l in datafile[0:2]]
+
+#only put the data into a dataframe
 df = pd.DataFrame(data)
 
 
-from alphaclean.constraints import Float, Correlation
-import numpy as np
-import scipy as sp
 
-print(df.iloc[0,:])
+from alphaclean.constraints import Float, Correlation
+
+
+#All of the numerical columns have to be positive floats:
 patterns = []
 for i in range(3,84):
     patterns.append(Float(str(i), [0, np.inf]))
 
 
+models = []
+
+#Calculate the distances between villages enforce a positive correlations between nearby villages
+for l in locations[0]:
+    lat_long = np.array([float(locations[0][l]), float(locations[1][l])])
+    distances = [ 
+                    (np.linalg.norm( np.array([float(locations[0][other]), \
+                                      float(locations[1][other])])\
+                   -lat_long), other) \
+
+                    for other in locations[0] if l != other\
+                ]
+
+    distances = sorted(distances)
+    models.append(Correlation([l, distances[0][1]]))
+
+
+
+#Solve
 from alphaclean.search import *
 
 config = DEFAULT_SOLVER_CONFIG
 
+#no search for pattern constraints, just enforce float
 config['pattern']['depth'] = 0
 
-config['dependency']['operations'] = [Delete]
-
-operation = solve(df, patterns, [Correlation([str(4), str(81)])])
-output = operation.run(df)
-
-print(operation)
-
-
-
-"""
-import matplotlib.pyplot as plt
-
-for i in range(output.shape[0]):
-    x = output["67"].iloc[i]
-    y = output["57"].iloc[i]
-
-    if np.isnan(x) or np.isnan(y):
-        continue
-
-    plt.scatter(x,y, c='r')
-
-plt.show()
-"""
-
-
-
-"""
-from alphaclean.constraints import Float, Parameteric
-patterns = [Float("3"), Float("5"), Float("6"), Float("7"),Float("8"),Float("9"), Float("10")]
-models = [Parameteric("5")]
-
-
-
-from alphaclean.search import *
-
-config = DEFAULT_SOLVER_CONFIG
-
+#only delete
 config['dependency']['operations'] = [Delete]
 
 operation = solve(df, patterns, models)
-
 output = operation.run(df)
 
 print(operation)
-
-
-
-
-import matplotlib.pyplot as plt
-
-plt.hist(output["5"].dropna().values)
-
-plt.show()
-"""
-
 
