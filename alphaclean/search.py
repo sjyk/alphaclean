@@ -33,7 +33,7 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
 
     if partitionOn != None:
-        blocks = set(df[partitionOn].values)
+        blocks = set(df[partitionOn].dropna().values)
         #blocks = set(['UA-1006-BOG-IAH'])
 
         for i, b in enumerate(blocks):
@@ -108,8 +108,6 @@ def dependencyConstraints(df, costFnList, config):
 
     for c in costFnList:
 
-        print(c)
-
         op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
                             inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
                             word2vec=config['model'])
@@ -156,6 +154,7 @@ def treeSearch(df,
 
         costEval = costFn.qfn(bfs_source)
 
+        #print(len(p.getAllOperations()))
         
         for l, opbranch in enumerate(p.getAllOperations()):
 

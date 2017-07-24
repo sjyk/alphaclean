@@ -51,6 +51,7 @@ config['pattern']['depth'] = 0
 
 #only delete
 config['dependency']['operations'] = [Delete]
+config['dependency']['depth'] = 1
 
 operation = solve(df, patterns, models)
 output = operation.run(df)
