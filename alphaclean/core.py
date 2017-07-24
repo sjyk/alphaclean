@@ -85,7 +85,6 @@ class Dataset:
             val = self.df[col].iloc[i]
 
 
-
             if val != val:
                 val = 'NaN'
 
@@ -102,7 +101,7 @@ class Dataset:
                 return x
 
 
-        #print('--',tuples_inside)
+        #print(tuples_inside)
 
         return [(col, set([ _translateNaN(p)]), tuples_inside) for p in vals_inside]
 

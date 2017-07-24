@@ -31,8 +31,6 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
     config['pattern']['model'] = w2vp
     config['dependency']['model'] = w2vd
 
-    op1 = patternConstraints(df, patterns, config['pattern'])
-    df = op1.run(df)
 
     if partitionOn != None:
         blocks = set(df[partitionOn].values)
@@ -43,11 +41,19 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
             print("Computing Block=",b, i ,"out of", len(blocks) )
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
+
+            op1 = patternConstraints(dfc, patterns, config['pattern'])
+
+            dfc = op1.run(dfc)
             
             op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
 
             op = op * (op1*op2)
     else:
+
+        op1 = patternConstraints(dfc, patterns, config['pattern'])
+
+        dfc = op1.run(dfc)
 
         op2 = dependencyConstraints(df, dependencies, config['dependency'])
 
@@ -148,7 +154,6 @@ def treeSearch(df,
 
         costEval = costFn.qfn(bfs_source)
 
-        print(len(p.getAllOperations()))
         
         for l, opbranch in enumerate(p.getAllOperations()):
 
