@@ -17,17 +17,20 @@ patterns += [DictValue('Gender', set(['M', 'F']))]
 patterns += [Float('Age', [18, 100])]
 
 #Only alpha numeric values
-patterns += [Pattern('Comment', "^[a-zA-Z0-9_]*$"), Pattern('Barangay', "^[a-zA-Z0-9_]*$")]
+patterns += [Pattern('Comment', "^[a-zA-Z0-9_]*$")]
 
 
 #generate a code book
 from alphaclean.misc import generateCodebook
-codes = generateCodebook(df,'Barangay', size=20)
-codes = [c for c in codes if 'x' in c.lower() or '--' in c.lower()] #remove some messy string artifacts
+codes = generateCodebook(df,'Barangay', size=100)
+codes = [c for c in codes if not 'x' in c.lower() and not '--' in c.lower()] #remove some messy string artifacts
 
 
 config = DEFAULT_SOLVER_CONFIG
 config["pattern"]["depth"] = 2
+config['dependency']['similarity'] = {'Barangay': 'jaccard'}
+config['dependency']['operations'] = [Swap]
+config['dependency']['edit'] = 50
 
 
 operation = solve(df, patterns, [DictValue('Barangay', codes)], partitionOn="Barangay")

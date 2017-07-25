@@ -199,6 +199,9 @@ class CellEdit(Constraint):
                     continue
                 elif df.iloc[i,j] == None:
                     continue
+                elif self.source.iloc[i,j] == None:
+                    qfn_a[i] = 1.0/p + qfn_a[i]
+                    continue 
                 elif target == '' and ref != target:
                     qfn_a[i] = 1.0/p + qfn_a[i]
                     continue 
@@ -246,7 +249,7 @@ class CellEdit(Constraint):
 
                 #print(self.metric[cname], j , target, ref, self.source.columns.values, cname)
 
-        #print(qfn_a)
+                #print(target, ref, qfn_a[i])
         return qfn_a
 
 
