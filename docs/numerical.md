@@ -36,7 +36,7 @@ Now, we can solve:
 operation = solve(df, patterns,[])
 
 output = operation.run(df)
-``
+```
 
 If we plot the results:
 ```
