@@ -277,7 +277,7 @@ class Date(Predicate):
 
         def timePatternCheck(x, p):
 
-            if x == None or len(x.strip()) == 0:
+            if x == None or x != x or  len(x.strip()) == 0:
                 return False
 
             try:
@@ -318,7 +318,7 @@ class Pattern(Predicate):
 
         def timePatternCheck(x, p):
 
-            if x == None or len(x) == 0:
+            if x == None or len(x) == 0 or x != x:
                 return False
 
             try:

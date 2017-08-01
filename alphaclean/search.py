@@ -15,6 +15,7 @@ DEFAULT_SOLVER_CONFIG = {'pattern': {'depth': 10, 'gamma': 5, 'edit': 1, 'operat
                          'dependency': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Swap], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'}}
 
 
+
 def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
 
     op = NOOP()
@@ -34,7 +35,7 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
     if partitionOn != None:
         blocks = set(df[partitionOn].dropna().values)
-        #blocks = set(['UA-1006-BOG-IAH'])
+        #blocks = set(['UA-1406-IAH-LAX'])
 
         for i, b in enumerate(blocks):
 
@@ -42,29 +43,30 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
 
-            op1 = patternConstraints(dfc, patterns, config['pattern'])
-
-            dfc = op1.run(dfc)
+            op1, dfc = patternConstraints(dfc, patterns, config['pattern'])
             
-            op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
+            op2, output_block = dependencyConstraints(dfc, dependencies, config['dependency'])
+
+            #update output block
+            df.loc[ df[partitionOn] == b ] = output_block 
 
             op = op * (op1*op2)
     else:
 
-        op1 = patternConstraints(df, patterns, config['pattern'])
+        op1, df = patternConstraints(df, patterns, config['pattern'])
 
-        dfc = op1.run(df)
-
-        op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
+        op2, df = dependencyConstraints(df, dependencies, config['dependency'])
 
         op = op * (op1*op2)
 
-    return op
+    return op, df 
+
 
 
 def loadWord2Vec(filename):
     from gensim.models.keyedvectors import KeyedVectors
     return KeyedVectors.load_word2vec_format(filename, binary=True)
+
 
 
 def needWord2Vec(config):
@@ -94,11 +96,14 @@ def patternConstraints(df, costFnList, config):
             df = d.run(df)
             op = op * d
 
-        op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
-                             inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
-                            word2vec=config['model'])
+        transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+                                   inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
+                                    word2vec=config['model'])
 
-    return op
+        op = op * transform
+
+
+    return op, df
 
 
 
@@ -108,11 +113,13 @@ def dependencyConstraints(df, costFnList, config):
 
     for c in costFnList:
 
-        op = op * treeSearch(df, c, config['operations'], evaluations=config['depth'], \
-                            inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
-                            word2vec=config['model'])
+        transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+                                   inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
+                                    word2vec=config['model'])
 
-    return op    
+        op = op * transform
+
+    return op, df    
 
 
 
@@ -130,7 +137,7 @@ def treeSearch(df,
 
     efn = CellEdit(df.copy(), similarity, word2vec).qfn
 
-    best = (2.0, NOOP())
+    best = (2.0, NOOP(), df)
 
     branch_hash = set()
     branch_value = hash(str(df.values))
@@ -138,16 +145,15 @@ def treeSearch(df,
 
     bad_op_cache = set()
 
-
     for i in range(evaluations):
         
-        value, op = best 
+        value, op, frame = best 
 
         #prune
         if (value-op.depth) > best[0]*inflation:
             continue
 
-        bfs_source = op.run(df).copy()
+        bfs_source = frame.copy()
 
         p = ParameterSampler(bfs_source, costFn, operations)
 
@@ -159,8 +165,7 @@ def treeSearch(df,
         for l, opbranch in enumerate(p.getAllOperations()):
 
             #prune bad ops
-            if opbranch.name in bad_op_cache or \
-               opbranch.name in op.provenance:
+            if opbranch.name in bad_op_cache:
                 continue
 
             nextop = op * opbranch
@@ -168,9 +173,8 @@ def treeSearch(df,
 
             #disallow trasforms that cause an error
             try:
-                output = nextop.run(df)
+                output = opbranch.run(frame)
             except:
-                output = nextop.run(df)
                 bad_op_cache.add(opbranch.name)
                 continue
 
@@ -184,9 +188,9 @@ def treeSearch(df,
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
 
             if n < best[0]:
-                best = (n, nextop)
+                best = (n, nextop, output)
             
-    return best[1]
+    return best[1], best[2]
 
 
 

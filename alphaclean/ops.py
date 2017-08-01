@@ -4,11 +4,13 @@ This class defines the operations that we can search over.
 Operations define a monoid
 """
 from sets import Set
-import dateparser
+from dateparser import DateDataParser
 import time
 import re
+import pandas as pd
 
 import datetime
+
 
 
 """
@@ -63,7 +65,38 @@ class Operation(object):
     def __str__(self):
         return self.name
 
+    def optimize(self):
+        return FusedOperation(self)
+
     __repr__ = __str__
+
+
+
+"""
+Optimizes an operation
+"""
+class FusedOperation(Operation):
+
+    def __init__(self, operation):
+
+        def fn(df):
+            N = df.shape[0]
+
+            for i in range(N):
+                row = df.iloc[i:i+1,:]
+                for op in operation.provenance:
+                    import datetime
+                    now = datetime.datetime.now()
+                    row = op.runfn(row)
+                    #print(op,  (datetime.datetime.now() - now).total_seconds() )
+                #print(i)
+
+            return df
+
+        super(FusedOperation,self).__init__(fn)
+
+
+
 
 
 """
@@ -140,7 +173,7 @@ class Swap(ParametrizedOperation):
 
 
         self.name = 'df = swap(df,'+formatString(column)+','+formatString(value)+','+str(predicate[0:2])+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(Swap,self).__init__(fn, ['column', 'predicate', 'value'])
 
@@ -177,7 +210,7 @@ class Delete(ParametrizedOperation):
 
 
         self.name = 'df = delete(df,'+formatString(column)+','+str(predicate[0:2])+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(Delete,self).__init__(fn, ['column', 'predicate'])
 
@@ -191,9 +224,12 @@ class DatetimeCast(ParametrizedOperation):
 
     def __init__(self, column, form):
 
+        parser = DateDataParser(languages=['en'], allow_redetect_language=False)
+
         def fn(df, 
                column=column, 
-               format=form):
+               format=form,
+               parser=parser):
 
             N = df.shape[0]
 
@@ -201,7 +237,7 @@ class DatetimeCast(ParametrizedOperation):
                 if df[column].iloc[i] != None:
 
                     try:
-                        df[column].iloc[i] = dateparser.parse(str(df[column].iloc[i])).strftime(form)
+                        df[column].iloc[i] = parser.get_date_data(str(df[column].iloc[i]))['date_obj'].strftime(form)
                     except:
                         pass
 
@@ -209,7 +245,7 @@ class DatetimeCast(ParametrizedOperation):
 
 
         self.name = 'df = dateparse(df,'+formatString(column)+','+formatString(form)+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(DatetimeCast, self).__init__(fn, ['column', 'form'])
 
@@ -248,7 +284,7 @@ class PatternCast(ParametrizedOperation):
 
 
         self.name = 'df = pattern(df,'+formatString(column)+','+formatString(form)+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(PatternCast, self).__init__(fn, ['column', 'form'])
 
@@ -280,7 +316,7 @@ class FloatCast(ParametrizedOperation):
 
 
         self.name = 'df = numparse(df,'+formatString(column)+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(FloatCast, self).__init__(fn, ['column'])
 
@@ -299,7 +335,7 @@ class NOOP(Operation):
 
 
         self.name = ""
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(NOOP,self).__init__(fn)
 
