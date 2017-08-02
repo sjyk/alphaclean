@@ -5,7 +5,9 @@ from alphaclean.search import *
 df = pd.read_csv('datasets/pcari_csv.csv', quotechar='\"', index_col=False)
 
 
-from alphaclean.constraints import DictValue, Float, Pattern
+from alphaclean.constraint_languages.ic import DictValue
+
+from alphaclean.constraint_languages.pattern import Float, Pattern
 
 
 patterns = []
@@ -36,8 +38,6 @@ config['dependency']['edit'] = 70
 patterns = []
 
 operation = solve(df, patterns, [DictValue('Barangay', codes)], partitionOn="Barangay")
-
-#print(operation.run(df))
 
 print(operation)
 

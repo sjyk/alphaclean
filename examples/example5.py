@@ -14,14 +14,16 @@ df = pd.DataFrame(data)
 
 
 
-from alphaclean.constraints import Float, Correlation
-
+from alphaclean.constraint_languages.patterns import Float
 
 #All of the numerical columns have to be positive floats:
 patterns = []
 for i in range(3,84):
     patterns.append(Float(str(i), [0, np.inf]))
 
+
+
+from alphaclean.constraint_languages.statistical import Correlation
 
 models = []
 

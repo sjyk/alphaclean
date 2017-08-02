@@ -18,9 +18,11 @@ config = DEFAULT_SOLVER_CONFIG
 config['dependency']['similarity'] = {'contbr_occupation': 'semantic'}
 config['dependency']['operations'] = [Swap, Delete]
 
-operation = solve(df, [], dependencies=[DictValue('contbr_occupation', codes)],
+
+from alphaclean.constraint_languages.ic import DictValue
+
+operation, output = solve(df, [], dependencies=[DictValue('contbr_occupation', codes)],
                   partitionOn='contbr_nm', config=config)
 
-print(operation.run(df))
+print(operation, output)
 
-print(operation)

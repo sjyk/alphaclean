@@ -1,18 +1,34 @@
-"""
-This module defines a bunch of different types of constraints
-"""
 import numpy as np
 import distance 
-import time
-import re
 import logging
 
 
+""" Module: Constraints
+
+The data scientist models her data with a formal language of logical constraints 
+(e.g., functional dependencies, denial constraints, statistical models). AlphaClean
+searches over space of transformations to best optimize the data for this model.
+
+Release Notes: Will probably rename to 'Data Model' in the future
+"""
+
+
 class Constraint(object):
+    """A constraint object is the basic wrapper class for translating a formal data model specification
+    to a quality function.
+    """
+
 
     def __init__(self, hint=set()):
+        """A basic constraint object.
+
+        Keyword arguments:
+        hint -- a set of attribute names
+        """
+
         self.hint = hint
 
+        #this is special case code to handle constraints where the domain is not closed
         self.hintParams = {}
 
         try:
@@ -20,14 +36,26 @@ class Constraint(object):
         except:
             pass
 
+
     def qfn(self, df):
+        """Evaluates the quality function for a specific database instance. This function 
+        calls the private method implemented by all the subclasses.
+
+        Positional arguments:
+        df -- a pandas dataframe
+        """
         return self._qfn(df)
 
 
     def _qfn(self, df):
         raise NotImplemented("Quality fn not implemented")
 
+
+    #the below methods implement a basic algebra over the quality functions
+
+
     def __add__(self, other):
+        """__add__ sums two quality functions """
         c = Constraint()
         c.qfn = lambda df: (self.qfn(df) + other.qfn(df))/2
 
@@ -38,7 +66,11 @@ class Constraint(object):
 
         return c
 
+
+
+
     def __mul__(self, other):
+        """__mul__ bitwise and relationship two quality functions """
         try: 
             fother = float(other)
             c = Constraint()
@@ -60,55 +92,28 @@ class Constraint(object):
             return c
 
 
-
-class FD(Constraint):
-
-    def __init__(self, source, target):
-
-        self.source = source
-        self.target = target
-
-        self.hint = set(source + target)
-        self.hintParams = {}
-
-
-    def _qfn(self, df):
-
-        N = df.shape[0]
-        kv = {}
-        normalization = 0
-
-        for i in range(N):
-            s = tuple(df[self.source].iloc[i,:])
-            t = tuple(df[self.target].iloc[i,:])
-
-            if s in kv:
-                kv[s].add(t)
-            else:
-                kv[s] = set([t])
-
-            normalization = max(len(kv[s]), normalization)
-
-        qfn_a = np.zeros((N,))
-        for i in range(N):
-            s = tuple(df[self.source].iloc[i,:])
-            qfn_a[i] = float(len(kv[s]) - 1)/normalization
-
-        return qfn_a
-
-
-def OneToOne(source, target):
-    return FD(source, target)*FD(target, source)
-
-
 class Predicate(Constraint):
+    """A Predicate Constraint is the most basic type of a constraint, it isn't intended for direct use
+    but rather an important building block for more informative higher-level constraints.
+    """
 
-    def __init__(self, attr, expr):
+    def __init__(self, attr, expr, none_penalty=0.01):
+        """The constructor takes in an attribute and a lambda that maps the attribute value to a true or false.
+
+        Positional arguments:
+        attr -- a string value representing the attribute over which the predicate is applied
+        expr -- a function domain(attr) -> {true, false} 
+
+        Keyword arguments:
+        none_penalty -- a penalty for none values
+        """
 
         self.attr = attr
         self.expr = expr
 
         self.hint = set([attr])
+
+        self.none_penalty = none_penalty
 
         super(Predicate,self).__init__(self.hint)
 
@@ -122,7 +127,7 @@ class Predicate(Constraint):
             val = df[self.attr].iloc[i]
 
             if val == None:
-                qfn_a[i] = 0.01
+                qfn_a[i] = self.none_penalty
 
             elif self.expr(val):
                 qfn_a[i] = 0
@@ -131,48 +136,28 @@ class Predicate(Constraint):
 
 
 
-class DenialConstraint(Constraint):
-
-    def __init__(self, negPredicates):
-
-        self.negPredicates = negPredicates
-        self.attrs = set([a for a,e in negPredicates])
-        self.hint = self.attrs
-        super(DenialConstraint,self).__init__(self.hint)
-
-
-    def _qfn(self, df):
-
-        N = df.shape[0]
-        qfn_a = np.ones((N,))
-
-        for i in range(N):
-
-            for a,e in self.negPredicates:
-                val = df[a].iloc[i]
-
-                if val == None:
-                    continue
-
-                if not e(val , df):
-                    qfn_a[i] = 0.0
-                    break
-
-        return qfn_a
-
-
-
-
-
-
-
-
 class CellEdit(Constraint):
+    """CellEdit constraint is a quasi-constraint that penalizes modifications to the dataset. The user supplies a 
+    source dataset and the constraint compares the edits with the current dataset and scores the changes.
+    """
 
     def __init__(self, source, metric={}, w2vModel=None):
+        """CellEdit constructor allowed similarity metrics are 'jaccard', 'semantic', 'edit'
+
+        Positional arguments:
+        source -- a dataframe
+
+        Keyword arguments:
+        metric -- a dict mapping attributes to a similarity metric. {a : metric}. allowed similarity metrics are 'jaccard', 'semantic', 'edit'
+        w2vModel -- this is neccessary if 'semantic' is chosen.
+        """
+
         self.source = source
 
+
+        #default the metric to 'edit' distance
         self.metric = {s: 'edit' for s in source.columns.values}
+
 
         semantic = False
 
@@ -183,6 +168,9 @@ class CellEdit(Constraint):
                 semantic = True
 
         self.word_vectors = w2vModel
+
+        if semantic and w2vModel == None:
+            raise ValueError("Must provide a word2vec model if you are using semantic similarity")
 
         self.cache = {}
 
@@ -244,261 +232,14 @@ class CellEdit(Constraint):
 
                             sim.append(similarity)
 
-                    #print(target,ref, np.mean(sim))
 
                     if len(sim) > 0:
                         qfn_a[i] = (1 - np.mean(sim))/p + qfn_a[i]
                     else:
                         qfn_a[i] = 1.0/p + qfn_a[i]
 
+                else:
 
-
-
-                #print(self.metric[cname], j , target, ref, self.source.columns.values, cname)
-
-                #print(target, ref, qfn_a[i])
-        return qfn_a
-
-
-
-#special predicates
-
-class DictValue(Predicate):
-
-    def __init__(self, attr, codebook):
-
-        self.attr = attr
-
-        self.codebook = codebook
-
-        super(DictValue, self).__init__(attr, lambda x, codebook=codebook: x in codebook)
-
-
-
-class Date(Predicate):
-
-    def __init__(self, attr, pattern):
-
-        self.pattern = pattern
-        self.attr = attr
-
-        def timePatternCheck(x, p):
-
-            if x == None or x != x or  len(x.strip()) == 0:
-                return False
-
-            try:
-                t = time.strptime(x,p)
-                #print(t)
-                return True
-            except ValueError:
-                return False
-
-
-        super(Date, self).__init__(attr, lambda x, p=pattern: timePatternCheck(x,p))
-
-
-class Float(Predicate):
-
-    def __init__(self, attr, nrange=[-np.inf, np.inf]):
-
-        self.attr = attr
-        self.range = nrange
-
-        def floatPatternCheck(x):
-
-            if x == None or isinstance(x, float):
-                return True
-            else:
-                return False
-
-        super(Float, self).__init__(attr, lambda x: floatPatternCheck(x))
-
-
-
-class Pattern(Predicate):
-
-    def __init__(self, attr, pattern):
-
-        self.pattern = pattern
-        self.attr = attr
-
-        def patternCheck(x, p):
-
-            if x == None or len(x) == 0 or x != x:
-                return False
-
-            try:
-                result = re.match(p, x)
-                return (result != None)
-            except:
-                return False
-
-
-        super(Pattern, self).__init__(attr, lambda x, p=pattern: patternCheck(x,p))
-
-
-
-
-
-class Parameteric(Constraint):
-
-    def __init__(self, attr, tolerance=5):
-
-        self.tolerance = tolerance
-        self.attr = attr
-        self.hint = set([attr])
-        self.hintParams = {}
-
-        
-        super(Parameteric, self).__init__(self.hint)
-
-    def _qfn(self, df): 
-        N = df.shape[0]
-        qfn_a = np.zeros((N,))
-        vals = df[self.attr].dropna().values
-        mean = np.mean(vals)
-        std = np.std(vals)
-
-        for i in range(N):
-            val = df[self.attr].iloc[i]
-
-            if np.isnan(val) or np.abs(val-mean) < std*self.tolerance:
-                qfn_a[i] = 0.0
-            else:
-                qfn_a[i] = 1.0
+                    raise ValueError('Unknown Similarity Metric: ' + self.metric[cname])
 
         return qfn_a
-
-
-class NonParametric(Constraint):
-
-    def __init__(self, attr, tolerance=5):
-
-        self.tolerance = tolerance
-        self.attr = attr
-        self.hint = set([attr])
-        self.hintParams = {}
-
-        
-        super(NonParametric, self).__init__(self.hint)
-
-    def _qfn(self, df): 
-        N = df.shape[0]
-        qfn_a = np.zeros((N,))
-        vals = df[self.attr].dropna().values
-        mean = np.median(vals)
-        std = np.median(np.abs(vals-mean))
-
-        for i in range(N):
-            val = df[self.attr].iloc[i]
-
-            if np.isnan(val) or np.abs(val-mean) < std*self.tolerance:
-                qfn_a[i] = 0.0
-            else:
-                qfn_a[i] = 1.0
-
-        return qfn_a
-
-
-
-class Correlation(Constraint):
-
-    def __init__(self, attrs, ctype="positive"):
-
-        self.ctype = ctype
-        self.attrs = attrs
-        self.hint = set(attrs)
-        self.hintParams = {}
-
-        
-        super(Correlation, self).__init__(self.hint)
-
-
-    def _qfn(self, df): 
-        N = df.shape[0]
-        qfn_a = np.zeros((N,))
-
-        x = df[self.attrs[0]].values
-        y = df[self.attrs[1]].values
-
-        mx = np.median(x[~np.isnan(x)])
-        my = np.median(y[~np.isnan(y)])
-
-        for i in range(N):
-            val1 = df[self.attrs[0]].iloc[i] - mx
-            val2 = df[self.attrs[1]].iloc[i] - my
-
-            if np.isnan(val1) or np.isnan(val2):
-                continue
-
-            if self.ctype == 'positive':
-                if np.sign(val1*val2) < 0:
-                    qfn_a[i] = np.abs(val1) + np.abs(val2)
-            else:
-                if np.sign(val1*val2) > 0:
-                    qfn_a[i] = math.abs(val1) + math.abs(val2)
-
-        #normalize
-        if np.sum(qfn_a) > 0:
-            qfn_a = qfn_a/np.max(qfn_a)
-
-        return qfn_a
-
-
-
-class NumericalRelationship(Constraint):
-
-    def __init__(self, attrs, fn, tolerance=5):
-        self.tolerance = tolerance
-        self.attrs = attrs
-        self.hint = set(attrs)
-        self.hintParams = {}
-        self.fn = fn
-
-        
-        super(NumericalRelationship, self).__init__(self.hint)
-
-
-    def _qfn(self, df): 
-        N = df.shape[0]
-        qfn_a = np.zeros((N,))
-
-        x = df[self.attrs[0]].values
-        y = df[self.attrs[1]].values
-
-        residuals = []
-        for i in range(N):
-            val1 = df[self.attrs[0]].iloc[i]
-            val2 = df[self.attrs[1]].iloc[i]
-
-            if np.isnan(val1) or np.isnan(val2):
-                continue
-
-            pred_val2 = self.fn(val1)
-            residual = val2 - pred_val2
-            residuals.append(residual)
-
-        mean = np.mean(residuals)
-        std = np.std(residuals)
-
-        for i in range(N):
-            val1 = df[self.attrs[0]].iloc[i]
-            val2 = df[self.attrs[1]].iloc[i]
-
-            if np.isnan(val1) or np.isnan(val2):
-                continue
-
-            pred_val2 = self.fn(val1)
-            residual = val2 - pred_val2
-
-            if np.abs(residual-mean) > self.tolerance*std:
-                qfn_a[i] = np.abs(residual-mean)
-
-
-        #normalize
-        if np.sum(qfn_a) > 0:
-            qfn_a = qfn_a/np.max(qfn_a)
-
-        return qfn_a
-

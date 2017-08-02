@@ -15,8 +15,9 @@ df = pd.DataFrame(data)
 
 
 
-from alphaclean.constraints import Float, Correlation, NumericalRelationship
+from alphaclean.constraint_languages.pattern import Float
 
+from alphaclean.constraint_languages.statistical import Correlation, NumericalRelationship
 
 #All of the numerical columns have to be positive floats:
 patterns = []

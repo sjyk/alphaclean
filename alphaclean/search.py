@@ -8,6 +8,9 @@ import datetime
 from generators import *
 from heapq import *
 
+#special case optimizations
+from alphaclean.constraint_languages.pattern import *
+
 
 DEFAULT_SOLVER_CONFIG = {}
 

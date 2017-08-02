@@ -21,13 +21,16 @@ data = [{'a': 'New Yorks',     'b': 'NY'},
 import pandas as pd
 df = pd.DataFrame(data)
 
-from alphaclean.constraints import OneToOne
+
+from alphaclean.constraint_languages.ic import OneToOne
 constraint = OneToOne(["a"], ["b"])
+
 
 from alphaclean.search import solve, DEFAULT_SOLVER_CONFIG
 config = DEFAULT_SOLVER_CONFIG
 config['dependency']['depth'] = 3
 config['dependency']['similarity'] = {'a': 'jaccard'}
+
 
 dcprogram, output = solve(df, dependencies=[constraint], config=config)
 
