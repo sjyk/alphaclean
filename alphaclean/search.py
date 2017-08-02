@@ -1,21 +1,31 @@
+"""
+Core search routine.
+"""
 
-"""
-Core search routine
-"""
+import numpy as np
+import datetime
 
 from generators import *
 from heapq import *
-import numpy as np
-import datetime
-import logging
 
 
-
-DEFAULT_SOLVER_CONFIG = {'pattern': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Delete], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'},
-                         'dependency': {'depth': 10, 'gamma': 5, 'edit': 1, 'operations': [Swap], 'similarity': {}, 'w2v': 'resources/GoogleNews-vectors-negative300.bin'}}
-
-
-
+DEFAULT_SOLVER_CONFIG = {}
+DEFAULT_SOLVER_CONFIG['pattern'] = {
+    'depth': 10,
+    'gamma': 5,
+    'edit': 1,
+    'operations': [Delete],
+    'similarity': {},
+    'w2v': 'resources/GoogleNews-vectors-negative300.bin'
+}
+DEFAULT_SOLVER_CONFIG['dependency'] = {
+    'depth': 10,
+    'gamma': 5,
+    'edit': 1,
+    'operations': [Swap],
+    'similarity': {},
+    'w2v': 'resources/GoogleNews-vectors-negative300.bin'
+}
 
 def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
 
@@ -34,10 +44,8 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
         w2vp = None
         w2vd = None
 
-
     config['pattern']['model'] = w2vp
     config['dependency']['model'] = w2vd
-
 
     if partitionOn != None:
         
@@ -55,7 +63,6 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
 
-
             logging.debug("Block=" + str(b) + ' size=' + str(dfc.shape[0]))
 
 
@@ -66,9 +73,9 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
             #update output block
             df.loc[ df[partitionOn] == b ] = output_block 
 
-            op = op * (op1*op2)
-    else:
+            op = op * (op1 * op2)
 
+            
         op1, df = patternConstraints(df, patterns, config['pattern'])
 
         op2, df = dependencyConstraints(df, dependencies, config['dependency'])
@@ -86,10 +93,9 @@ def loadWord2Vec(filename):
 
 
 def needWord2Vec(config):
-    return ('semantic' in [config['pattern']['similarity'][k] for k in config['pattern']['similarity']]) or \
-            ('semantic' in [config['dependency']['similarity'][k] for k in config['dependency']['similarity']])
-
-
+    semantic_in_pattern = 'semantic' in config['pattern']['similarity']
+    semantic_in_dependency = 'semantic' in config['dependency']['similarity']
+    return semantic_in_pattern or semantic_in_dependency
 
 
 def patternConstraints(df, costFnList, config):
@@ -124,9 +130,7 @@ def patternConstraints(df, costFnList, config):
     return op, df
 
 
-
 def dependencyConstraints(df, costFnList, config):
-    
     op = NOOP()
 
     for c in costFnList:
@@ -142,19 +146,8 @@ def dependencyConstraints(df, costFnList, config):
     return op, df    
 
 
-
-
-
-def treeSearch(df, 
-               costFn, 
-               operations, 
-               evaluations,
-               inflation,
-               editCost,
-               similarity,
-               word2vec):
-
-
+def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
+               similarity, word2vec):
     efn = CellEdit(df.copy(), similarity, word2vec).qfn
 
     best = (2.0, NOOP(), df)
@@ -164,7 +157,6 @@ def treeSearch(df,
     branch_hash.add(branch_value)
 
     bad_op_cache = set()
-
 
     search_start_time = datetime.datetime.now()
 
@@ -177,7 +169,6 @@ def treeSearch(df,
         
         value, op, frame = best 
 
-
         #prune
         if (value-op.depth) > best[0]*inflation:
             continue
@@ -185,7 +176,6 @@ def treeSearch(df,
         bfs_source = frame.copy()
 
         p = ParameterSampler(bfs_source, costFn, operations)
-
 
         costEval = costFn.qfn(bfs_source)
         
@@ -199,7 +189,6 @@ def treeSearch(df,
 
             nextop = op * opbranch
 
-
             #disallow trasforms that cause an error
             try:
                 output = opbranch.run(frame)
@@ -208,12 +197,10 @@ def treeSearch(df,
                 bad_op_cache.add(opbranch.name)
                 continue
 
-
             #evaluate pruning
             if pruningRules(output):
                 logging.debug('Pruned Search Branch='+str(l)+' ' + opbranch.name)
                 continue
-
 
             costEval = costFn.qfn(output)
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
@@ -229,8 +216,6 @@ def treeSearch(df,
     return best[1], best[2]
 
 
-
-
 def pruningRules(output):
 
     if output.shape[1] == 0:
@@ -240,7 +225,3 @@ def pruningRules(output):
         return True 
 
     return False
-
-
-
-
