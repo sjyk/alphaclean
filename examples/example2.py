@@ -24,7 +24,14 @@ patterns = [Date("2", "%m/%d/%Y %I:%M %p"),
 
 dependencies = [OneToOne(["1"], [str(i)]) for i in range(2, 8)]
 
-from alphaclean.search import solve
-operation = solve(df, patterns, dependencies, partitionOn="1")
 
-print(operation)
+from alphaclean.search import *
+
+config = DEFAULT_SOLVER_CONFIG
+config['dependency']['depth'] = 1
+config['dependency']['similarity'] = {'a':'jaccard'}
+config['dependency']['operations'] = [Swap]
+
+operation, output = solve(df, patterns, dependencies, partitionOn="1")
+
+print(operation, output)

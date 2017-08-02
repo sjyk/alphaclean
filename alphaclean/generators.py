@@ -8,6 +8,7 @@ from constraints import *
 from core import *
 import copy
 import string
+import logging
 
 
 class ParameterSampler(object):
@@ -30,8 +31,6 @@ class ParameterSampler(object):
         parameters = []
         paramset = [(op, sorted(op.paramDescriptor.values()), op.paramDescriptor.values()) for op in self.operationList]
 
-        #print(paramset)
-
         for op, p, orig in paramset:
 
             if p[0] == ParametrizedOperation.COLUMN:
@@ -50,8 +49,6 @@ class ParameterSampler(object):
                         #print(pv)
                         grid.append(self.indexToFun(pv, col))
 
-                    #print(grid)
-                    #todo fix
                     augProduct = []
                     for p in product(*grid):
                         v = list(p)
@@ -59,8 +56,6 @@ class ParameterSampler(object):
                         augProduct.append(tuple(v))
 
                     colParams.extend(augProduct)
-
-                #print(colParams)
 
                 parameters.append((op, colParams, origParam))
 
@@ -74,9 +69,6 @@ class ParameterSampler(object):
 
 
                 parameters.append( (op, product(*grid), orig))
-
-
-        #print(parameters)
 
         return parameters
 
@@ -103,6 +95,8 @@ class ParameterSampler(object):
                 operations.append(op(**arg))
 
         operations.append(NOOP())
+
+        logging.debug("Library generator created "+str(len(operations)) + " operations")
         
         return operations 
 
@@ -112,7 +106,7 @@ class ParameterSampler(object):
 
         #remove imputes that are uncorrelated
         if 'value' in arg:
-            return (arg['value'] != arg['value'])
+            return (arg['value'] != arg['value']) or (arg['value'] == None)
 
         if 'substr1' in arg and 'substr2' in arg:
             return (arg['substr1'] == arg['substr2'])
@@ -215,7 +209,8 @@ class ParameterSampler(object):
             #if self.dataset.types[c] == 'cat': #only take categorical values
             all_predicates.extend(self.dataset.getPredicatesDeterministic(self.qfn, c, self.predicate_granularity))
 
-        #print(self.qfn(self.df))
+        logging.debug("Predicate Sampler has "+str(len(all_predicates)))
+        
         return all_predicates
         #return self.dataset.getPredicates(self.qfn, self.predicate_granularity)
 

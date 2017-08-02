@@ -29,8 +29,7 @@ config = DEFAULT_SOLVER_CONFIG
 config['dependency']['depth'] = 3
 config['dependency']['similarity'] = {'a': 'jaccard'}
 
-dcprogram = solve(df, dependencies=[constraint], config=config)
+dcprogram, output = solve(df, dependencies=[constraint], config=config)
 
-print(dcprogram.run(df))
+print(dcprogram, output)
 
-print(dcprogram)

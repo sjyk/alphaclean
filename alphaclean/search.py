@@ -4,6 +4,7 @@ Core search routine.
 
 import numpy as np
 import datetime
+
 from generators import *
 from heapq import *
 
@@ -26,14 +27,19 @@ DEFAULT_SOLVER_CONFIG['dependency'] = {
     'w2v': 'resources/GoogleNews-vectors-negative300.bin'
 }
 
+def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
 
-def solve(df, patterns=[], dependencies=[], partitionOn=None,
-          config=DEFAULT_SOLVER_CONFIG):
     op = NOOP()
+
+
+    logging.debug('Starting the search algorithm with the following config: ' + str(df.shape) + " " + str(config))
 
     if needWord2Vec(config):
         w2vp = loadWord2Vec(config['pattern']['w2v'])
         w2vd = loadWord2Vec(config['pattern']['w2v'])
+
+        logging.debug('Using word2vec for semantic similarity')
+
     else:
         w2vp = None
         w2vd = None
@@ -41,37 +47,49 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None,
     config['pattern']['model'] = w2vp
     config['dependency']['model'] = w2vd
 
-    if partitionOn is not None:
-        blocks = set(df[partitionOn].values)
-        #blocks = set(['UA-1006-BOG-IAH'])
+    if partitionOn != None:
+        
+        
+        logging.warning("You didn't specify any blocking rules, this might be slow")
+
+
+        blocks = set(df[partitionOn].dropna().values)
 
         for i, b in enumerate(blocks):
 
-            print("Computing Block=", b, i, "out of", len(blocks))
-
-            dfc = df.loc[df[partitionOn] == b].copy()
             
-            op1 = patternConstraints(dfc, patterns, config['pattern'])
+            logging.info("Computing Block=" + str(b) + ' ' + str(i+1)  + " out of " + str(len(blocks)) )
 
-            dfc = op1.run(dfc)
+
+            dfc = df.loc[ df[partitionOn] == b ].copy()
+
+            logging.debug("Block=" + str(b) + ' size=' + str(dfc.shape[0]))
+
+
+            op1, dfc = patternConstraints(dfc, patterns, config['pattern'])
             
-            op2 = dependencyConstraints(dfc, dependencies, config['dependency'])
+            op2, output_block = dependencyConstraints(dfc, dependencies, config['dependency'])
+
+            #update output block
+            df.loc[ df[partitionOn] == b ] = output_block 
 
             op = op * (op1 * op2)
 
-    else:
-        op1 = patternConstraints(df, patterns, config['pattern'])
-        df = op1.run(df)
-        op2 = dependencyConstraints(df, dependencies, config['dependency'])
+            
+        op1, df = patternConstraints(df, patterns, config['pattern'])
+
+        op2, df = dependencyConstraints(df, dependencies, config['dependency'])
 
         op = op * (op1*op2)
 
-    return op
+    return op, df 
+
 
 
 def loadWord2Vec(filename):
     from gensim.models.keyedvectors import KeyedVectors
     return KeyedVectors.load_word2vec_format(filename, binary=True)
+
 
 
 def needWord2Vec(config):
@@ -85,7 +103,9 @@ def patternConstraints(df, costFnList, config):
 
     for c in costFnList:
 
-        if isinstance(c,Date): #fix
+        logging.debug('Enforcing pattern constraint='+str(c))
+
+        if isinstance(c,Date):
             d = DatetimeCast(c.attr, c.pattern)
             df = d.run(df)
             op = op * d
@@ -95,14 +115,19 @@ def patternConstraints(df, costFnList, config):
             df = d.run(df)
             op = op * d
 
-        op = op * treeSearch(df, c, config['operations'],
-                             evaluations=config['depth'],
-                             inflation=config['gamma'],
-                             editCost=config['edit'],
-                             similarity=config['similarity'],
-                             word2vec=config['model'])
+        elif isinstance(c, Float):
+            d = FloatCast(c.attr, c.range)
+            df = d.run(df)
+            op = op * d
 
-    return op
+        transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+                                   inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
+                                    word2vec=config['model'])
+
+        op = op * transform
+
+
+    return op, df
 
 
 def dependencyConstraints(df, costFnList, config):
@@ -110,21 +135,22 @@ def dependencyConstraints(df, costFnList, config):
 
     for c in costFnList:
 
-        op = op * treeSearch(df, c, config['operations'],
-                             evaluations=config['depth'],
-                             inflation=config['gamma'],
-                             editCost=config['edit'],
-                             similarity=config['similarity'],
-                             word2vec=config['model'])
+        logging.debug('Enforcing dependency constraint='+str(c))
 
-    return op    
+        transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+                                   inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
+                                    word2vec=config['model'])
+
+        op = op * transform
+
+    return op, df    
 
 
 def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
                similarity, word2vec):
     efn = CellEdit(df.copy(), similarity, word2vec).qfn
 
-    best = (2.0, NOOP())
+    best = (2.0, NOOP(), df)
 
     branch_hash = set()
     branch_value = hash(str(df.values))
@@ -132,15 +158,22 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
 
     bad_op_cache = set()
 
-    for _ in range(evaluations):
+    search_start_time = datetime.datetime.now()
 
-        value, op = best 
+
+    for i in range(evaluations):
+
+        level_start_time = datetime.datetime.now()
+
+        logging.debug('Search Depth='+str(i))
+        
+        value, op, frame = best 
 
         #prune
         if (value-op.depth) > best[0]*inflation:
             continue
 
-        bfs_source = op.run(df).copy()
+        bfs_source = frame.copy()
 
         p = ParameterSampler(bfs_source, costFn, operations)
 
@@ -148,31 +181,39 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
         
         for l, opbranch in enumerate(p.getAllOperations()):
 
+            logging.debug('Search Branch='+str(l)+' ' + opbranch.name)
+
             #prune bad ops
-            if opbranch.name in bad_op_cache or \
-               opbranch.name in op.provenance:
+            if opbranch.name in bad_op_cache:
                 continue
 
             nextop = op * opbranch
 
             #disallow trasforms that cause an error
             try:
-                output = nextop.run(df)
+                output = opbranch.run(frame)
             except:
+                logging.warn('Error in Search Branch='+str(l)+' ' + opbranch.name)
                 bad_op_cache.add(opbranch.name)
                 continue
 
             #evaluate pruning
             if pruningRules(output):
+                logging.debug('Pruned Search Branch='+str(l)+' ' + opbranch.name)
                 continue
 
             costEval = costFn.qfn(output)
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
 
             if n < best[0]:
-                best = (n, nextop)
+                logging.debug('Promoted Search Branch='+str(l)+' ' + opbranch.name)
+                best = (n, nextop, output)
+
+        logging.debug('Search Depth='+str(i) + " took " + str((datetime.datetime.now()-level_start_time).total_seconds()))
+
+    logging.debug('Search  took ' + str((datetime.datetime.now()-search_start_time).total_seconds()))
             
-    return best[1]
+    return best[1], best[2]
 
 
 def pruningRules(output):

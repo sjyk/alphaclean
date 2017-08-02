@@ -4,11 +4,13 @@ This class defines the operations that we can search over.
 Operations define a monoid
 """
 from sets import Set
-import dateparser
+from dateparser import DateDataParser
 import time
 import re
-
+import pandas as pd
 import datetime
+import logging
+
 
 
 """
@@ -19,8 +21,6 @@ class Operation(object):
     def __init__(self, runfn, depth=1, provenance=[]):
         self.runfn = lambda df: runfn(df) 
         self.depth = depth
-        #self.name = 'df = Generic(df)'
-        #self.activeSet = set()
         if provenance != []:
             self.provenance = provenance
 
@@ -29,14 +29,15 @@ class Operation(object):
     """
     def run(self, df):
 
-
-        #now = datetime.datetime.now()
+        op_start_time = datetime.datetime.now()
 
         df_copy = df.copy(deep=True)
 
-        #print((datetime.datetime.now()-now).total_seconds())
+        result = self.runfn(df_copy)
 
-        return self.runfn(df_copy)
+        logging.debug('Running ' + self.name+ ' took ' + str((datetime.datetime.now()-op_start_time).total_seconds()))
+
+        return result
 
     """
     Defines composable operations on a data frame
@@ -64,6 +65,8 @@ class Operation(object):
         return self.name
 
     __repr__ = __str__
+
+
 
 
 """
@@ -101,69 +104,6 @@ class ParametrizedOperation(Operation):
                 raise ValueError("Parameter " + str(p) + " has an invalid descriptor")
 
 
-
-"""
-Potter's wheel operations
-"""
-
-class Split(ParametrizedOperation):
-
-    paramDescriptor = {'column': ParametrizedOperation.COLUMN, 'delim': ParametrizedOperation.SUBSTR}
-
-    def __init__(self, column, delim):
-
-        def fn(df, column=column, delim=delim):
-
-            args = {}
-
-            #get the split length
-            length = df[column].map(lambda x: len(x.split(delim))).max()
-
-            def safeSplit(s, delim, index):
-                splitArray = s.split(delim)
-                if index >= len(splitArray):
-                    return None
-                else:
-                    return splitArray[index]
-
-            for l in range(length):
-                key = column+str(l)
-
-                if column+str(l) in df.columns.values:
-                    key = key + '_1' 
-
-                args[key] = df[column].map(lambda x, index=l: safeSplit(x, delim, l))
-
-            return df.assign(**args)
-
-
-        self.name = 'df = split(df,'+formatString(column)+','+formatString(delim)+')'
-        self.provenance = [self.name]
-
-        super(Split,self).__init__(fn, ['column', 'delim'])
-
-
-class Merge(ParametrizedOperation):
-
-    paramDescriptor = {'column1': ParametrizedOperation.COLUMN, 
-                       'column2': ParametrizedOperation.COLUMN}
-
-    def __init__(self, column1, column2):
-
-        def fn(df, c1=column1, c2=column2):
-
-            df[c1] = df[c2].copy()
-
-            return df
-
-
-        self.name = 'df = merge(df,'+formatString(column1)+','+formatString(column2)+')'
-        self.provenance = [self.name]
-
-        super(Merge,self).__init__(fn, ['column1', 'column2'])
-
-
-
 """
 Find an replace operation
 """
@@ -177,7 +117,7 @@ class Swap(ParametrizedOperation):
 
         #print("a,b", column, value)
 
-        logical_predicate = lambda row: row[predicate[0]] in predicate[1]
+        logical_predicate = lambda row: (row[predicate[0]] in predicate[1]) and (tuple(row.dropna().values) in predicate[2])
 
         self.column = column
         self.predicate = predicate
@@ -189,6 +129,7 @@ class Swap(ParametrizedOperation):
                v=value):
 
             def __internal(row):
+                #print(tuple(row.values), predicate(row))
                 if predicate(row):
                     return v 
                 else:
@@ -201,8 +142,8 @@ class Swap(ParametrizedOperation):
             return df
 
 
-        self.name = 'df = swap(df,'+formatString(column)+','+formatString(value)+','+str(predicate)+')'
-        self.provenance = [self.name]
+        self.name = 'df = swap(df,'+formatString(column)+','+formatString(value)+','+str(predicate[0:2])+')'
+        self.provenance = [self]
 
         super(Swap,self).__init__(fn, ['column', 'predicate', 'value'])
 
@@ -218,14 +159,17 @@ class Delete(ParametrizedOperation):
     def __init__(self, column, predicate):
 
 
-        logical_predicate = lambda row: row[predicate[0]] in predicate[1]
+        logical_predicate = lambda row: (row[predicate[0]] in predicate[1]) and (tuple(row.dropna().values) in predicate[2])
+
+        #print(predicate[1])
 
         def fn(df, 
                column=column, 
                predicate=logical_predicate):
 
             def __internal(row):
-                if  predicate(row):
+                if predicate(row):
+                    #print(row["4"], row["81"])
                     return None
                 else:
                     return row[column]
@@ -235,8 +179,8 @@ class Delete(ParametrizedOperation):
             return df
 
 
-        self.name = 'df = delete(df,'+formatString(column)+','+str(predicate)+')'
-        self.provenance = [self.name]
+        self.name = 'df = delete(df,'+formatString(column)+','+str(predicate[0:2])+')'
+        self.provenance = [self]
 
         super(Delete,self).__init__(fn, ['column', 'predicate'])
 
@@ -250,9 +194,12 @@ class DatetimeCast(ParametrizedOperation):
 
     def __init__(self, column, form):
 
+        parser = DateDataParser(languages=['en'], allow_redetect_language=False)
+
         def fn(df, 
                column=column, 
-               format=form):
+               format=form,
+               parser=parser):
 
             N = df.shape[0]
 
@@ -260,7 +207,7 @@ class DatetimeCast(ParametrizedOperation):
                 if df[column].iloc[i] != None:
 
                     try:
-                        df[column].iloc[i] = dateparser.parse(str(df[column].iloc[i])).strftime(form)
+                        df[column].iloc[i] = parser.get_date_data(str(df[column].iloc[i]))['date_obj'].strftime(form)
                     except:
                         pass
 
@@ -268,7 +215,7 @@ class DatetimeCast(ParametrizedOperation):
 
 
         self.name = 'df = dateparse(df,'+formatString(column)+','+formatString(form)+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(DatetimeCast, self).__init__(fn, ['column', 'form'])
 
@@ -307,13 +254,41 @@ class PatternCast(ParametrizedOperation):
 
 
         self.name = 'df = pattern(df,'+formatString(column)+','+formatString(form)+')'
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(PatternCast, self).__init__(fn, ['column', 'form'])
 
 
 
 
+class FloatCast(ParametrizedOperation):
+
+    paramDescriptor = {'column': ParametrizedOperation.COLUMN}
+
+
+    def __init__(self, column, nrange):
+
+        def fn(df, column=column, r=nrange):
+
+            def __internal(row):
+                try:
+                    value = float(row[column])
+                    if value >= r[0] and value <= r[1]:
+                        return value
+                    else:
+                        return None 
+                except:
+                    return None
+
+            df[column] = df.apply(lambda row: __internal(row), axis=1)
+
+            return df
+
+
+        self.name = 'df = numparse(df,'+formatString(column)+')'
+        self.provenance = [self]
+
+        super(FloatCast, self).__init__(fn, ['column'])
 
 
 
@@ -330,7 +305,7 @@ class NOOP(Operation):
 
 
         self.name = ""
-        self.provenance = [self.name]
+        self.provenance = [self]
 
         super(NOOP,self).__init__(fn)
 
