@@ -11,7 +11,8 @@ import logging
 import string
 import random
 
-logfilename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+logfilename =  ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10)) +'.log'
 
+logging.warn("Logs saved in " + logfilename)
 
-logging.basicConfig(level=logging.DEBUG, filename=logfilename+'.log') 
+logging.basicConfig(level=logging.DEBUG, filename=logfilename) 

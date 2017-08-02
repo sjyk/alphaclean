@@ -10,6 +10,7 @@ from heapq import *
 
 
 DEFAULT_SOLVER_CONFIG = {}
+
 DEFAULT_SOLVER_CONFIG['pattern'] = {
     'depth': 10,
     'gamma': 5,
@@ -18,6 +19,7 @@ DEFAULT_SOLVER_CONFIG['pattern'] = {
     'similarity': {},
     'w2v': 'resources/GoogleNews-vectors-negative300.bin'
 }
+
 DEFAULT_SOLVER_CONFIG['dependency'] = {
     'depth': 10,
     'gamma': 5,
@@ -75,7 +77,8 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
             op = op * (op1 * op2)
 
-            
+    else:
+       
         op1, df = patternConstraints(df, patterns, config['pattern'])
 
         op2, df = dependencyConstraints(df, dependencies, config['dependency'])
