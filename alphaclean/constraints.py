@@ -20,11 +20,7 @@ class Constraint(object):
             pass
 
     def qfn(self, df):
-        #try:
-            return self._qfn(df)
-        #except:
-        #    N = df.shape[0]
-        #    return np.ones((N,))
+        return self._qfn(df)
 
 
     def _qfn(self, df):
@@ -104,9 +100,6 @@ def OneToOne(source, target):
     return FD(source, target)*FD(target, source)
 
 
-
-
-
 class Predicate(Constraint):
 
     def __init__(self, attr, expr):
@@ -132,32 +125,45 @@ class Predicate(Constraint):
 
             elif self.expr(val):
                 qfn_a[i] = 0
-            #else:
-
-                #print(val, self.codebook)
 
         return qfn_a
 
 
 
-class Shape(Constraint):
+class DenialConstraint(Constraint):
 
-    def __init__(self, rows, columns):
+    def __init__(self, negPredicates):
 
-        self.rows = rows
-        self.columns = columns
+        self.negPredicates = negPredicates
+        self.attrs = set([a for a,e in negPredicates])
+        self.hint = self.attrs
+        super(DenialConstraint,self).__init__(self.hint)
 
 
     def _qfn(self, df):
 
         N = df.shape[0]
-        qfn_a = np.zeros((N,))
+        qfn_a = np.ones((N,))
 
-        if df.shape[0] != self.rows or \
-           df.shape[1] != self.columns:
-           return np.ones((N,))
+        for i in range(N):
+
+            for a,e in self.negPredicates:
+                val = df[a].iloc[i]
+
+                if val == None:
+                    continue
+
+                if not e(val , df):
+                    qfn_a[i] = 0.0
+                    break
 
         return qfn_a
+
+
+
+
+
+
 
 
 class CellEdit(Constraint):
@@ -316,7 +322,7 @@ class Pattern(Predicate):
         self.pattern = pattern
         self.attr = attr
 
-        def timePatternCheck(x, p):
+        def patternCheck(x, p):
 
             if x == None or len(x) == 0 or x != x:
                 return False
@@ -328,7 +334,7 @@ class Pattern(Predicate):
                 return False
 
 
-        super(Pattern, self).__init__(attr, lambda x, p=pattern: timePatternCheck(x,p))
+        super(Pattern, self).__init__(attr, lambda x, p=pattern: patternCheck(x,p))
 
 
 
@@ -437,3 +443,61 @@ class Correlation(Constraint):
             qfn_a = qfn_a/np.max(qfn_a)
 
         return qfn_a
+
+
+
+class NumericalRelationship(Constraint):
+
+    def __init__(self, attrs, fn, tolerance=5):
+        self.tolerance = tolerance
+        self.attrs = attrs
+        self.hint = set(attrs)
+        self.hintParams = {}
+        self.fn = fn
+
+        
+        super(NumericalRelationship, self).__init__(self.hint)
+
+
+    def _qfn(self, df): 
+        N = df.shape[0]
+        qfn_a = np.zeros((N,))
+
+        x = df[self.attrs[0]].values
+        y = df[self.attrs[1]].values
+
+        residuals = []
+        for i in range(N):
+            val1 = df[self.attrs[0]].iloc[i]
+            val2 = df[self.attrs[1]].iloc[i]
+
+            if np.isnan(val1) or np.isnan(val2):
+                continue
+
+            pred_val2 = self.fn(val1)
+            residual = val2 - pred_val2
+            residuals.append(residual)
+
+        mean = np.mean(residuals)
+        std = np.std(residuals)
+
+        for i in range(N):
+            val1 = df[self.attrs[0]].iloc[i]
+            val2 = df[self.attrs[1]].iloc[i]
+
+            if np.isnan(val1) or np.isnan(val2):
+                continue
+
+            pred_val2 = self.fn(val1)
+            residual = val2 - pred_val2
+
+            if np.abs(residual-mean) > self.tolerance*std:
+                qfn_a[i] = np.abs(residual-mean)
+
+
+        #normalize
+        if np.sum(qfn_a) > 0:
+            qfn_a = qfn_a/np.max(qfn_a)
+
+        return qfn_a
+

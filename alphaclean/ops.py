@@ -88,7 +88,7 @@ class FusedOperation(Operation):
                     import datetime
                     now = datetime.datetime.now()
                     row = op.runfn(row)
-                    #print(op,  (datetime.datetime.now() - now).total_seconds() )
+                    print(op,  (datetime.datetime.now() - now).total_seconds() )
                 #print(i)
 
             return df

@@ -35,7 +35,6 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
     if partitionOn != None:
         blocks = set(df[partitionOn].dropna().values)
-        #blocks = set(['UA-1406-IAH-LAX'])
 
         for i, b in enumerate(blocks):
 
@@ -159,8 +158,6 @@ def treeSearch(df,
 
 
         costEval = costFn.qfn(bfs_source)
-
-        #print(len(p.getAllOperations()))
         
         for l, opbranch in enumerate(p.getAllOperations()):
 
