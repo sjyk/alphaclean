@@ -6,8 +6,8 @@ Core search routine
 from generators import *
 from heapq import *
 import numpy as np
-
 import datetime
+import logging
 
 
 
@@ -16,14 +16,20 @@ DEFAULT_SOLVER_CONFIG = {'pattern': {'depth': 10, 'gamma': 5, 'edit': 1, 'operat
 
 
 
+
 def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
 
     op = NOOP()
 
 
+    logging.debug('Starting the search algorithm with the following config: ' + str(df.shape) + " " + str(config))
+
     if needWord2Vec(config):
         w2vp = loadWord2Vec(config['pattern']['w2v'])
         w2vd = loadWord2Vec(config['pattern']['w2v'])
+
+        logging.debug('Using word2vec for semantic similarity')
+
     else:
         w2vp = None
         w2vd = None
@@ -34,13 +40,24 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
 
     if partitionOn != None:
+        
+        
+        logging.warning("You didn't specify any blocking rules, this might be slow")
+
+
         blocks = set(df[partitionOn].dropna().values)
 
         for i, b in enumerate(blocks):
 
-            print("Computing Block=",b, i ,"out of", len(blocks) )
+            
+            logging.info("Computing Block=" + str(b) + ' ' + str(i+1)  + " out of " + str(len(blocks)) )
+
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
+
+
+            logging.debug("Block=" + str(b) + ' size=' + str(dfc.shape[0]))
+
 
             op1, dfc = patternConstraints(dfc, patterns, config['pattern'])
             
@@ -80,7 +97,9 @@ def patternConstraints(df, costFnList, config):
 
     for c in costFnList:
 
-        if isinstance(c,Date): #fix
+        logging.debug('Enforcing pattern constraint='+str(c))
+
+        if isinstance(c,Date):
             d = DatetimeCast(c.attr, c.pattern)
             df = d.run(df)
             op = op * d
@@ -111,6 +130,8 @@ def dependencyConstraints(df, costFnList, config):
     op = NOOP()
 
     for c in costFnList:
+
+        logging.debug('Enforcing dependency constraint='+str(c))
 
         transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
                                    inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
@@ -144,9 +165,18 @@ def treeSearch(df,
 
     bad_op_cache = set()
 
+
+    search_start_time = datetime.datetime.now()
+
+
     for i in range(evaluations):
+
+        level_start_time = datetime.datetime.now()
+
+        logging.debug('Search Depth='+str(i))
         
         value, op, frame = best 
+
 
         #prune
         if (value-op.depth) > best[0]*inflation:
@@ -161,6 +191,8 @@ def treeSearch(df,
         
         for l, opbranch in enumerate(p.getAllOperations()):
 
+            logging.debug('Search Branch='+str(l)+' ' + opbranch.name)
+
             #prune bad ops
             if opbranch.name in bad_op_cache:
                 continue
@@ -172,12 +204,14 @@ def treeSearch(df,
             try:
                 output = opbranch.run(frame)
             except:
+                logging.warn('Error in Search Branch='+str(l)+' ' + opbranch.name)
                 bad_op_cache.add(opbranch.name)
                 continue
 
 
             #evaluate pruning
             if pruningRules(output):
+                logging.debug('Pruned Search Branch='+str(l)+' ' + opbranch.name)
                 continue
 
 
@@ -185,7 +219,12 @@ def treeSearch(df,
             n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
 
             if n < best[0]:
+                logging.debug('Promoted Search Branch='+str(l)+' ' + opbranch.name)
                 best = (n, nextop, output)
+
+        logging.debug('Search Depth='+str(i) + " took " + str((datetime.datetime.now()-level_start_time).total_seconds()))
+
+    logging.debug('Search  took ' + str((datetime.datetime.now()-search_start_time).total_seconds()))
             
     return best[1], best[2]
 

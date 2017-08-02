@@ -5,6 +5,7 @@ import numpy as np
 import distance 
 import time
 import re
+import logging
 
 
 class Constraint(object):

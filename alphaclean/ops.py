@@ -8,8 +8,8 @@ from dateparser import DateDataParser
 import time
 import re
 import pandas as pd
-
 import datetime
+import logging
 
 
 
@@ -21,8 +21,6 @@ class Operation(object):
     def __init__(self, runfn, depth=1, provenance=[]):
         self.runfn = lambda df: runfn(df) 
         self.depth = depth
-        #self.name = 'df = Generic(df)'
-        #self.activeSet = set()
         if provenance != []:
             self.provenance = provenance
 
@@ -31,14 +29,15 @@ class Operation(object):
     """
     def run(self, df):
 
-
-        #now = datetime.datetime.now()
+        op_start_time = datetime.datetime.now()
 
         df_copy = df.copy(deep=True)
 
-        #print((datetime.datetime.now()-now).total_seconds())
+        result = self.runfn(df_copy)
 
-        return self.runfn(df_copy)
+        logging.debug('Running ' + self.name+ ' took ' + str((datetime.datetime.now()-op_start_time).total_seconds()))
+
+        return result
 
     """
     Defines composable operations on a data frame
@@ -65,36 +64,7 @@ class Operation(object):
     def __str__(self):
         return self.name
 
-    def optimize(self):
-        return FusedOperation(self)
-
     __repr__ = __str__
-
-
-
-"""
-Optimizes an operation
-"""
-class FusedOperation(Operation):
-
-    def __init__(self, operation):
-
-        def fn(df):
-            N = df.shape[0]
-
-            for i in range(N):
-                row = df.iloc[i:i+1,:]
-                for op in operation.provenance:
-                    import datetime
-                    now = datetime.datetime.now()
-                    row = op.runfn(row)
-                    print(op,  (datetime.datetime.now() - now).total_seconds() )
-                #print(i)
-
-            return df
-
-        super(FusedOperation,self).__init__(fn)
-
 
 
 

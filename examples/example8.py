@@ -23,6 +23,8 @@ config = DEFAULT_SOLVER_CONFIG
 config['dependency']['depth'] = 3
 config['dependency']['similarity'] = {'a':'jaccard'}
 
+
+
 dcprogram, output = solve(df, patterns=[Float("b")] ,dependencies=[constraint], config=config)
 
 print(dcprogram, output)
