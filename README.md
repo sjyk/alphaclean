@@ -38,4 +38,4 @@ The docs folder contains a number of tutorials on how to use AlphaClean.
 2. [Scaling Up](https://github.com/sjyk/alphaclean/blob/master/docs/02-Scaling.md)
 3. [External Knowledge](https://github.com/sjyk/alphaclean/blob/master/docs/03-ExternalInfo.md)
 4. [Basic Numerical Cleaning](https://github.com/sjyk/alphaclean/blob/master/docs/04-Numerical.md)
-5. [Advanced Numerical Cleaning]()
+5. [Advanced Numerical Cleaning](https://github.com/sjyk/alphaclean/blob/master/docs/05-AdvancedNumerical.md)
