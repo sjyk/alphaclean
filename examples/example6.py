@@ -34,9 +34,6 @@ config['dependency']['similarity'] = {'Barangay': 'jaccard'}
 config['dependency']['operations'] = [Swap]
 config['dependency']['edit'] = 70
 
-#for now
-patterns = []
-
 operation = solve(df, patterns, [DictValue('Barangay', codes)], partitionOn="Barangay")
 
 print(operation)

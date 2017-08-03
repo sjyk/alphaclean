@@ -2,6 +2,7 @@
 This module generates feasible parameter settings, the settings 
 are in a form of an ordered list
 """
+
 from itertools import combinations, product
 from ops import *
 from constraints import *

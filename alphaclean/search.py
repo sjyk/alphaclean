@@ -1,5 +1,10 @@
 """
-Core search routine.
+Module: search
+
+A best-first search expands the most promising nodes cho-sen  according  to  a  specified  cost  function.   
+We  consider  ag reedy  version  of  this  algorithm,  which  removes  nodes  on the frontier that are more than 
+\gamma times worse than the current  best  solution.   Making \gamma larger  makes  the  algorithm asympotically  
+consistent,  whereas \gamma=  1  is  a  pure  greedy search.
 """
 
 import numpy as np
@@ -8,10 +13,11 @@ import datetime
 from generators import *
 from heapq import *
 
-#special case optimizations
+#special case optimizations require references to the pattern objects
 from alphaclean.constraint_languages.pattern import *
 
 
+#Configuration schema
 DEFAULT_SOLVER_CONFIG = {}
 
 DEFAULT_SOLVER_CONFIG['pattern'] = {
@@ -32,12 +38,26 @@ DEFAULT_SOLVER_CONFIG['dependency'] = {
     'w2v': 'resources/GoogleNews-vectors-negative300.bin'
 }
 
+
+
 def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOLVER_CONFIG):
+    """The solve function takes as input a specification in terms of a list of patterns and 
+    a list of depdencies and returns a cleaned instance and a data cleaning program.
+
+    Release notes: patterns have precedence over dependenceis should do this properly in the future
+
+    Positional arguments:
+    df -- Pandas DataFrame
+    patterns -- a list of single attribute pattern constraints
+    dependencies -- a list of single or multiple attribute constraints that are run after the pattern constraints
+    patitionOn -- a blocking rule to partition the dataset
+    config -- a config object
+    """
 
     op = NOOP()
 
-
     logging.debug('Starting the search algorithm with the following config: ' + str(df.shape) + " " + str(config))
+
 
     if needWord2Vec(config):
         w2vp = loadWord2Vec(config['pattern']['w2v'])
@@ -93,18 +113,24 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
 
 def loadWord2Vec(filename):
+    """Loads a word2vec model from a file"""
     from gensim.models.keyedvectors import KeyedVectors
     return KeyedVectors.load_word2vec_format(filename, binary=True)
 
 
 
 def needWord2Vec(config):
+    """Determines whether word2vec is needed"""
     semantic_in_pattern = 'semantic' in config['pattern']['similarity']
     semantic_in_dependency = 'semantic' in config['dependency']['similarity']
     return semantic_in_pattern or semantic_in_dependency
 
 
+
+
 def patternConstraints(df, costFnList, config):
+    """Enforces pattern constrains"""
+
     op = NOOP()
 
     for c in costFnList:
@@ -137,6 +163,8 @@ def patternConstraints(df, costFnList, config):
 
 
 def dependencyConstraints(df, costFnList, config):
+    """enforces dependency constraints"""
+
     op = NOOP()
 
     for c in costFnList:
@@ -152,8 +180,23 @@ def dependencyConstraints(df, costFnList, config):
     return op, df    
 
 
+
+
 def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
                similarity, word2vec):
+    """This is the function that actually runs the treesearch
+
+    Positional arguments:
+    df -- Pandas DataFrame
+    costFn -- a cost function
+    operations -- a list of operations
+    evaluation -- a total number of evaluations
+    inflation -- gamma
+    editCost -- scaling on the edit cost
+    similarity -- a dictionary the specified similarity metrics to use
+    word2vec -- a word2vec model (avoid reloading things)
+    """
+
     efn = CellEdit(df.copy(), similarity, word2vec).qfn
 
     best = (2.0, NOOP(), df)

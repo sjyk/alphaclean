@@ -13,6 +13,7 @@ df = pd.DataFrame(data)
 
 
 from alphaclean.constraint_language.pattern import Float
+
 from alphaclean.constraint_language.ic import DenialConstraint
 
 constraint = DenialConstraint([('a', lambda x, d: 'Manager' in x), 
