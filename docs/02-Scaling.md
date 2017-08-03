@@ -1,5 +1,5 @@
-# Example 2: Truth Finding with AlphaClean
-
+# 2. Scaling AlphaClean
+This example will show how to scale the search algorithm to larger datasets and will work with some real data.
 There are often discrepancies in data acquired from different Web sources. A common data cleaning task is to reconcile these discrepencies into a cannonical source of truth. Example 2 `examples/example2.py` shows how this can be done in our framework. It will leverage the same basic tools as the toy example.
 
 We have a dataset of airline 1000 arrival and departure times:
@@ -9,7 +9,8 @@ f = open('datasets/airplane.txt','r')
 data = [  { str(i):j for i,j in enumerate(l.strip().split('\t')) } for l in f.readlines()]
 df = pd.DataFrame(data)
 ```
-If we load it into a pandas data frame, we get a dataset with a large number of inconsistencies in formatting, value, and completeness:
+
+If we load it into a pandas dataframe, we get a dataset with a large number of inconsistencies in formatting, value, and completeness:
 ```
                 0                1                    2                3  \
 10         panynj  AA-1007-TPA-MIA                         2:07 PMDec 01   
@@ -36,28 +37,33 @@ If we load it into a pandas data frame, we get a dataset with a large number of 
 19   F78           3:00pDec 1         2:57pDec 1   D5 
 ```
 
+## Creating the Data Model
 We would like to fix this with AlphaClean. First, we isolate all of the date/time attributes 2, 3, 5,6. We have a special constraint that enforces patterns on date/time attributes in a standard strftime format.
 ```
-from alphaclean.constraints import Date
+from alphaclean.constraint_languages.pattern import Date
 patterns = [Date("2", "%m/%d/%Y %I:%M %p"), Date("3", "%m/%d/%Y %I:%M %p"), Date("5", "%m/%d/%Y %I:%M %p"), Date("6", "%m/%d/%Y %I:%M %p")]
 ```
 This enforces that values should be of the form 'MM-DD-YYYY HH:MM {AM,PM}'. Next, we have to enforce a pattern on the gate number:
 ```
-from alphaclean.constraints import Pattern
+from alphaclean.constraint_languages.pattern import Pattern
 patterns += [Pattern("4", '^[a-zA-Z][0-9]+'), Pattern("7", '^[a-zA-Z][0-9]+')]
 ```
 Then, we introduce a One-to-One constraint between the flight code (attribute 1) and all other attributes:
 ```
+from alphaclean.constraint_languages.ic import OneToOne
 dependencies = []
 for i in range(2,8):
     dependencies.append(OneToOne(["1"],[str(i)]))
 ```
 
+## Scaling the Solver
 Now it's time to solve, since this dataset is substantially larger, we are going to solve it in blocks. Blocks partition decoupled units of data to speed up the search algorithm. In this case, the flight-code is a reasonable blocking rule:
 ```
 from alphaclean.search import solve
 operation = solve(df, patterns, dependencies, partitionOn="1")
 ```
+What this means is that the solver will apply a divide-and-conqueor strategy solving the problem in blocks partitioned by the first attribute (the flight key).
+
 This should take about 30 minutes to run, and will output a very long program to fix all the data, here is a sample of the result:
 ```
 

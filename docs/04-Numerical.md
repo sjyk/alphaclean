@@ -1,4 +1,4 @@
-# Example 4: "Simple" Numerical Outliers with AlphaClean
+# 4. "Simple" Numerical Outliers with AlphaClean
 In the next example, we consider "simple" outliers. That is, single attributes that significantly deviate from the typical value in a distribution.
 
 ## Weather Dataset
@@ -27,7 +27,7 @@ df = pd.DataFrame(data)
 ## Creating Constraints
 Next, we want to parse each of the numerical columns as a Floating point number:
 ```
-from alphaclean.constraints import Float
+from alphaclean.constraint_languages.pattern import Float
 patterns = [Float("3"), Float("5"), Float("6"), Float("7"),Float("8"),Float("9"), Float("10")]
 ```
 
@@ -49,6 +49,8 @@ plt.show()
 
 We see that there are large outliers polluting the data. We can further add a "model" restriction that gives the system a hint that the column represents a statistical distribution and should be concentrated around center values.
 ```
+from alphaclean.constraint_languages.statistical import Parametric
+
 models = [Parameteric("5")]
 ```
 
