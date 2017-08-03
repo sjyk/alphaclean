@@ -31,5 +31,11 @@ pip install -r requirements.txt
 ```
 
 ## Using the Package
-
 The docs folder contains a number of tutorials on how to use AlphaClean.
+
+0. [Getting Started](https://github.com/sjyk/alphaclean/blob/master/docs/00-GettingStarted.md)
+1. [Advanced Features](https://github.com/sjyk/alphaclean/blob/master/docs/01-MakingItHarder.md)
+2. [Scaling Up](https://github.com/sjyk/alphaclean/blob/master/docs/02-Scaling.md)
+3. [External Knowledge](https://github.com/sjyk/alphaclean/blob/master/docs/03-ExternalInfo.md)
+4. [Basic Numerical Cleaning](https://github.com/sjyk/alphaclean/blob/master/docs/04-Numerical.md)
+5. [Advanced Numerical Cleaning]()

@@ -1,4 +1,4 @@
-# Example 3: Survey Coding with AlphaClean
+# 3. Survey Coding with AlphaClean
  Survey coding is the process of taking the open-ended responses and categorizing them into groups. In this example, we have a dataset of 1000 US 2016 presidential election contributions and want to categorize the occupations of the contributors into groups. 
  Example 3 `examples/example3.py` shows how this can be done in our framework. This example requires at least 8GB of available memory.
 
