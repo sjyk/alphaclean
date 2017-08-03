@@ -1,32 +1,67 @@
 import environ
 
-data = [{'a': 'Employee 1' , 'b': '100.0'}, 
-         {'a': 'Employee 2' , 'b': '100.0'},
-         {'a': 'Employee 3' , 'b': '100.0'},
-         {'a': 'Employee 4' ,'b': '100.0'},
-         {'a': 'Manager 1' ,'b': '500.0'},
-         {'a': 'Manager 2' ,'b': '80.0'}]
+data = [{'title': 'Employee 1' , 'salary': 100.0}, 
+         {'title': 'Employee 2' , 'salary': 100.0},
+         {'title': 'Employee 3' , 'salary': 100.0},
+         {'title': 'Employee 4' ,'salary': 100.0},
+         {'title': 'Manager 1' ,'salary': 500.0},
+         {'title': 'Manager 2' ,'salary': 80.0}]
 
 
 import pandas as pd
 df = pd.DataFrame(data)
 
 
-from alphaclean.constraint_language.pattern import Float
+from alphaclean.constraint_languages.ic import DenialConstraint, DCPredicate
 
-from alphaclean.constraint_language.ic import DenialConstraint
+#Employee is a manager
+predicate1 = DCPredicate(local_attr='title', expression= lambda value, data_frame: 'Manager' in value)
 
-constraint = DenialConstraint([('a', lambda x, d: 'Manager' in x), 
-                              ('b', lambda x, d: d[ (d['b'] > x) & \
-                                                     d['a'].str.contains("Employee", na=False) ].shape[0] > 0) ])
+#There exists an employee with a salary greater than the given manager's salary
+predicate2 = DCPredicate(local_attr='salary', expression= lambda value, data_frame: \
+                                                        data_frame[ (data_frame['salary'] > value) & \
+                                                        data_frame['title'].str.contains("Employee", na=False) ].shape[0] > 0)
 
-from alphaclean.search import solve, DEFAULT_SOLVER_CONFIG
-config = DEFAULT_SOLVER_CONFIG
-config['dependency']['depth'] = 3
-config['dependency']['similarity'] = {'a':'jaccard'}
-
+constraint = DenialConstraint([predicate1, predicate2])
 
 
-dcprogram, output = solve(df, patterns=[Float("b")] ,dependencies=[constraint], config=config)
+from alphaclean.search import solve
+
+dcprogram, output = solve(df, patterns=[] ,dependencies=[constraint])
 
 print(dcprogram, output)
+
+
+
+
+
+
+from alphaclean.search import DEFAULT_SOLVER_CONFIG
+from alphaclean.ops import Delete, Swap
+
+config = DEFAULT_SOLVER_CONFIG
+config['dependency']['operations'] = [Delete]
+
+dcprogram2, output2 = solve(df, patterns=[] ,dependencies=[constraint], config=config)
+
+print(dcprogram2, output2)
+
+
+
+
+data = [{'title': 'Employee 1' , 'salary': 100.0}, 
+         {'title': 'Employee 2' , 'salary': 100.0},
+         {'title': 'Employee 3' , 'salary': 100.0},
+         {'title': 'Employee 4' ,'salary': 100.0},
+         {'title': 'Manager 1' ,'salary': 500.0},
+         {'title': 'Manager 2' ,'salary': 50.0}]
+
+config = DEFAULT_SOLVER_CONFIG
+config['dependency']['operations'] = [Swap, Delete]
+config['dependency']['edit'] = 0
+
+df = pd.DataFrame(data)
+
+dcprogram3, output3 = solve(df, patterns=[] ,dependencies=[constraint], config=config)
+
+print(dcprogram3, output3)

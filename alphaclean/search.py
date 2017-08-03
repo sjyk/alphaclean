@@ -246,13 +246,15 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
                 bad_op_cache.add(opbranch.name)
                 continue
 
+            editfn = np.sum(efn(output))
+
             #evaluate pruning
             if pruningRules(output):
                 logging.debug('Pruned Search Branch='+str(l)+' ' + opbranch.name)
                 continue
 
             costEval = costFn.qfn(output)
-            n = (np.sum(costEval) + editCost*np.sum(efn(output)))/output.shape[0]
+            n = (np.sum(costEval) + editCost*editfn)/output.shape[0]
 
             if n < best[0]:
                 logging.debug('Promoted Search Branch='+str(l)+' ' + opbranch.name)

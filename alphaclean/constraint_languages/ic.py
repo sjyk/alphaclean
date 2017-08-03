@@ -94,7 +94,8 @@ class DenialConstraint(Constraint):
                 val = dcp.get(df).iloc[i]
 
                 if val == None:
-                    continue
+                    qfn_a[i] = 0.0
+                    break
 
                 if not dcp.eval(val,df):
                     qfn_a[i] = 0.0

@@ -107,7 +107,13 @@ class ParameterSampler(object):
 
         #remove imputes that are uncorrelated
         if 'value' in arg:
-            return (arg['value'] != arg['value']) or (arg['value'] == None)
+
+            if 'column' in arg and 'predicate' in arg and arg['column'] == arg['predicate'][0]:
+
+                return (arg['value'] != arg['value']) or (arg['value'] == None) or (arg['value'] in arg['predicate'][1])
+
+            else:
+                return (arg['value'] != arg['value']) or (arg['value'] == None)
 
         if 'substr1' in arg and 'substr2' in arg:
             return (arg['substr1'] == arg['substr2'])

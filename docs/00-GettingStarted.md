@@ -1,4 +1,4 @@
-# Example 1: City Names & Abbreviations
+# 0. City Names & Abbreviations
 This example is to illustrate the basic functionality and the concepts in AlphaClean.
 You can run this example on your own, by running `python examples/example1.py` from the `alphaclean` directory.
 
