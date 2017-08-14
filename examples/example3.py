@@ -8,7 +8,7 @@ import environ
 import pandas as pd
 from alphaclean.search import *
 
-df = pd.read_csv('datasets/elections.txt-big', quotechar='\"', index_col=False)
+df = pd.read_csv('datasets/elections.txt', quotechar='\"', index_col=False)
 
 from alphaclean.misc import generateCodebook
 codes = generateCodebook(df, 'contbr_occupation')

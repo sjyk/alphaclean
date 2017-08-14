@@ -149,7 +149,7 @@ class DictValue(Predicate):
     A DictValue constraint enforces that domain of a speficied attribute conforms to a dictionary
     """
 
-    def __init__(self, attr, codebook, threshold=0.4):
+    def __init__(self, attr, codebook, threshold=0.1):
         """ DictValue constructor
 
         Positional arguments:
