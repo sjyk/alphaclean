@@ -13,6 +13,8 @@ import datetime
 from generators import *
 from heapq import *
 
+from alphaclean.learning import *
+
 #special case optimizations require references to the pattern objects
 from alphaclean.constraint_languages.pattern import *
 
@@ -72,6 +74,9 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
     config['pattern']['model'] = w2vp
     config['dependency']['model'] = w2vd
 
+    training_set = (set(), set())
+    pruningModel = None
+
     if partitionOn != None:
         
         
@@ -80,10 +85,14 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
         blocks = set(df[partitionOn].dropna().values)
 
+        #df = df.set_index(partitionOn)
+
         for i, b in enumerate(blocks):
 
             
             logging.info("Computing Block=" + str(b) + ' ' + str(i+1)  + " out of " + str(len(blocks)) )
+
+            print("Computing Block=" + str(b) + ' ' + str(i+1)  + " out of " + str(len(blocks)))
 
 
             dfc = df.loc[ df[partitionOn] == b ].copy()
@@ -93,10 +102,22 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
 
             op1, dfc = patternConstraints(dfc, patterns, config['pattern'])
             
-            op2, output_block = dependencyConstraints(dfc, dependencies, config['dependency'])
+            op2, output_block, training = dependencyConstraints(dfc, dependencies, config['dependency'], pruningModel)
 
             #update output block
+            now = datetime.datetime.now()
             df.loc[ df[partitionOn] == b ] = output_block 
+            print((datetime.datetime.now()-now).total_seconds())
+
+            training_set = (training_set[0].union(training[0]), training_set[1].union(training[1]))
+
+
+            #pruningModel = getFeatures(training_set[0], training_set[1], df)
+
+            #if len(training_set[0]) > 10000:
+            #    exit()
+
+
 
             op = op * (op1 * op2)
 
@@ -121,8 +142,8 @@ def loadWord2Vec(filename):
 
 def needWord2Vec(config):
     """Determines whether word2vec is needed"""
-    semantic_in_pattern = 'semantic' in config['pattern']['similarity']
-    semantic_in_dependency = 'semantic' in config['dependency']['similarity']
+    semantic_in_pattern = 'semantic' in [config['pattern']['similarity'][k] for k in config['pattern']['similarity']]
+    semantic_in_dependency = 'semantic' in [config['dependency']['similarity'][k] for k in config['dependency']['similarity']]
     return semantic_in_pattern or semantic_in_dependency
 
 
@@ -152,7 +173,7 @@ def patternConstraints(df, costFnList, config):
             df = d.run(df)
             op = op * d
 
-        transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+        transform, df, _ = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
                                    inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
                                     word2vec=config['model'])
 
@@ -162,7 +183,7 @@ def patternConstraints(df, costFnList, config):
     return op, df
 
 
-def dependencyConstraints(df, costFnList, config):
+def dependencyConstraints(df, costFnList, config, pruningModel=None):
     """enforces dependency constraints"""
 
     op = NOOP()
@@ -171,19 +192,20 @@ def dependencyConstraints(df, costFnList, config):
 
         logging.debug('Enforcing dependency constraint='+str(c))
 
-        transform, df = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
+        transform, df, training = treeSearch(df, c, config['operations'], evaluations=config['depth'], \
                                    inflation=config['gamma'], editCost=config['edit'], similarity=config['similarity'],\
-                                    word2vec=config['model'])
+                                    word2vec=config['model'],
+                                    pruningModel=pruningModel)
 
         op = op * transform
 
-    return op, df    
+    return op, df, training    
 
 
 
 
 def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
-               similarity, word2vec):
+               similarity, word2vec, pruningModel=None):
     """This is the function that actually runs the treesearch
 
     Positional arguments:
@@ -197,7 +219,8 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
     word2vec -- a word2vec model (avoid reloading things)
     """
 
-    efn = CellEdit(df.copy(), similarity, word2vec).qfn
+    editCostObj = CellEdit(df.copy(), similarity, word2vec)
+    efn = editCostObj.qfn
 
     best = (2.0, NOOP(), df)
 
@@ -208,6 +231,8 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
     bad_op_cache = set()
 
     search_start_time = datetime.datetime.now()
+
+    all_operations = set()
 
 
     for i in range(evaluations):
@@ -224,7 +249,7 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
 
         bfs_source = frame.copy()
 
-        p = ParameterSampler(bfs_source, costFn, operations)
+        p = ParameterSampler(bfs_source, costFn, operations, editCostObj)
 
         costEval = costFn.qfn(bfs_source)
         
@@ -232,9 +257,16 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
 
             logging.debug('Search Branch='+str(l)+' ' + opbranch.name)
 
+            if not isinstance(opbranch, NOOP):
+                all_operations.add(opbranch)
+
             #prune bad ops
             if opbranch.name in bad_op_cache:
                 continue
+
+            #if pruningModel != None and not predict(pruningModel, opbranch, df):
+            #    #print("Pruned: ", opbranch)
+            #    continue
 
             nextop = op * opbranch
 
@@ -264,7 +296,7 @@ def treeSearch(df, costFn, operations, evaluations, inflation, editCost,
 
     logging.debug('Search  took ' + str((datetime.datetime.now()-search_start_time).total_seconds()))
             
-    return best[1], best[2]
+    return best[1], best[2], (all_operations.difference(set(best[1].provenance)), set(best[1].provenance))
 
 
 def pruningRules(output):
