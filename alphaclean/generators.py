@@ -14,7 +14,7 @@ import logging
 
 class ParameterSampler(object):
 
-    def __init__(self, df, qfn, operationList, substrThresh=0.1, scopeLimit=3, predicate_granularity=None):
+    def __init__(self, df, qfn, operationList, similarity, substrThresh=0.1, scopeLimit=3, predicate_granularity=None):
         self.df = df
         self.qfn = qfn.qfn
         self.qfnobject = qfn
@@ -22,6 +22,7 @@ class ParameterSampler(object):
         self.scopeLimit = scopeLimit
         self.operationList = operationList
         self.predicate_granularity = predicate_granularity
+        self.similarity = similarity
 
         self.predicateIndex = {}
 
@@ -108,9 +109,20 @@ class ParameterSampler(object):
         #remove imputes that are uncorrelated
         if 'value' in arg:
 
+            if 'predicate' in arg and list(arg['predicate'][1])[0] == None:
+                return True
+
+
+            if 'codebook' in self.qfnobject.hintParams:
+                sim = self.qfnobject.threshold
+                
+                if self.similarity.semantic(str(arg['value']), str(list(arg['predicate'][1])[0])) > sim:
+                    return True
+
+
             if 'column' in arg and 'predicate' in arg and arg['column'] == arg['predicate'][0]:
 
-                return (arg['value'] != arg['value']) or (arg['value'] == None) or (arg['value'] in arg['predicate'][1])
+                return (arg['value'] != arg['value']) or (arg['value'] == None) or (arg['value'] in arg['predicate'][1]) or (len(arg['predicate'][1]) == 0)
 
             else:
                 return (arg['value'] != arg['value']) or (arg['value'] == None)

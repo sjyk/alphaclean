@@ -205,41 +205,53 @@ class CellEdit(Constraint):
                     continue
 
 
-                ttokens = set(target.lower().split())
-                rtokens = set(ref.lower().split())
-
                 if self.metric[cname] == 'edit':
 
-                    qfn_a[i] = distance.levenshtein(target, ref, normalized=True)/p + qfn_a[i]
+                    qfn_a[i] = self.edit(target,ref)/p + qfn_a[i]
                 
                 elif self.metric[cname] == 'jaccard':
                     
-                    qfn_a[i] = (1.0 - (len(ttokens.intersection(rtokens))+0.)/ (len(ttokens.union(rtokens))+0.))/p + qfn_a[i]
+                    qfn_a[i] = self.jaccard(target, ref)/p + qfn_a[i]
 
                 elif self.metric[cname] == 'semantic':
-
-                    sim = []
-                    #print(j, cname, np.mean(sim))
-
-                    for t in ttokens:
-                        for r in rtokens:
-
-                            try:
-                                similarity = (self.word_vectors.similarity(t,r)+ 1.0)/2
-                                #print(t,r)
-                            except:
-                                similarity = 0
-
-                            sim.append(similarity)
-
-
-                    if len(sim) > 0:
-                        qfn_a[i] = (1 - np.mean(sim))/p + qfn_a[i]
-                    else:
-                        qfn_a[i] = 1.0/p + qfn_a[i]
+                    qfn_a[i] = self.semantic(target, ref)/p + qfn_a[i]
 
                 else:
 
                     raise ValueError('Unknown Similarity Metric: ' + self.metric[cname])
 
         return qfn_a
+
+
+    def edit(self, target,ref):
+        return distance.levenshtein(target, ref, normalized=True)
+
+    def jaccard(self, target,ref):
+        ttokens = set(target.lower().split())
+        rtokens = set(ref.lower().split())
+        return (1.0 - (len(ttokens.intersection(rtokens))+0.)/ (len(ttokens.union(rtokens))+0.))
+
+
+    def semantic(self, target, ref):
+        ttokens = set(target.lower().split())
+        rtokens = set(ref.lower().split())
+
+        sim = []
+        for t in ttokens:
+            for r in rtokens:
+
+                try:
+                    similarity = (self.word_vectors.similarity(t,r)+ 1.0)/2
+                except:
+                    similarity = 0
+
+                sim.append(similarity)
+
+        if len(sim) > 0:
+            return (1 - np.mean(sim)) 
+        else:
+            return 1.0
+
+
+
+
