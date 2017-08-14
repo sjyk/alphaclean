@@ -1,4 +1,5 @@
 from collections import Counter
+import numpy as np
 
 
 def generateCodebook(d, attr, size=100):
@@ -10,3 +11,17 @@ def generateCodebook(d, attr, size=100):
     codebook = set([occ[1] for occ in l][0:size])
 
     return codebook
+
+
+def generateCorrelationCodebook(d, attr, labels, size=100):
+    values = set([v for v in d[attr].values if v == str(v)])
+    
+    ranked_tokens = []
+
+    for v in values:
+        corr = np.abs(np.corrcoef(d[attr]==v, labels)[0,1])
+        ranked_tokens.append((corr, v))
+
+    ranked_tokens.sort(reverse=True)
+
+    return set([v[1] for v in ranked_tokens[:size]])

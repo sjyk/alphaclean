@@ -12,17 +12,19 @@ df = pd.read_csv('datasets/elections.txt', quotechar='\"', index_col=False)
 
 from alphaclean.misc import generateCodebook
 codes = generateCodebook(df, 'contbr_occupation')
-print(codes)
+#print(codes)
 
 config = DEFAULT_SOLVER_CONFIG
 config['dependency']['similarity'] = {'contbr_occupation': 'semantic'}
 config['dependency']['operations'] = [Swap, Delete]
+config['dependency']['depth'] = 1
 
 
 from alphaclean.constraint_languages.ic import DictValue
 
+
 operation, output = solve(df, [], dependencies=[DictValue('contbr_occupation', codes)],
-                  partitionOn='contbr_nm', config=config)
+                  partitionOn='contbr_occupation', config=config)
 
 print(operation, output)
 

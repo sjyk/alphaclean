@@ -33,7 +33,6 @@ config['dependency']['depth'] = 1 #do not chain operations map a -> b, then b ->
 #config['dependency']['editCost'] = 50 #set some penalty for making changes
 
 
-
 from alphaclean.constraint_languages.ic import DictValue
 
 #solver operates in blocks and since these problems don't affect multiple rows, you can block on the same attribute you are cleaning
