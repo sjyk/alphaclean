@@ -117,7 +117,7 @@ class Swap(ParametrizedOperation):
 
         #print("a,b", column, value)
 
-        logical_predicate = lambda row: (row[predicate[0]] in predicate[1]) and (tuple(row.dropna().values) in predicate[2])
+        logical_predicate = lambda row: (row[predicate[0]] in predicate[1])
 
         self.column = column
         self.predicate = predicate
