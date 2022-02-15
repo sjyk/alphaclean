@@ -9,8 +9,8 @@ from sklearn.manifold import spectral_embedding
 from sklearn.neighbors import BallTree
 import distance 
 from sklearn import tree
-from constraints import *
-from type_inference import *
+from .constraints import *
+from .type_inference import *
 
 
 class Dataset:
