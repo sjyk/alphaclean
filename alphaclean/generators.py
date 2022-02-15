@@ -4,9 +4,9 @@ are in a form of an ordered list
 """
 
 from itertools import combinations, product
-from ops import *
-from constraints import *
-from core import *
+from .ops import *
+from .constraints import *
+from .core import *
 import copy
 import string
 import logging
@@ -38,7 +38,9 @@ class ParameterSampler(object):
             if p[0] == ParametrizedOperation.COLUMN:
 
                 #remove one of the cols
-                origParam = copy.copy(orig)
+                # origParam = copy.deepcopy(list(orig.items()))
+                origParam = list(orig)
+                orig = list(orig)
                 orig.remove(p[0])
                 colParams = []
 

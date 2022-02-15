@@ -10,7 +10,7 @@ consistent,  whereas \gamma=  1  is  a  pure  greedy search.
 import numpy as np
 import datetime
 
-from generators import *
+from .generators import *
 from heapq import *
 
 from alphaclean.learning import *
@@ -125,7 +125,7 @@ def solve(df, patterns=[], dependencies=[], partitionOn=None, config=DEFAULT_SOL
        
         op1, df = patternConstraints(df, patterns, config['pattern'])
 
-        op2, df = dependencyConstraints(df, dependencies, config['dependency'])
+        op2, df, _ = dependencyConstraints(df, dependencies, config['dependency'])
 
         op = op * (op1*op2)
 

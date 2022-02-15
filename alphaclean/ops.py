@@ -3,7 +3,7 @@ This class defines the operations that we can search over.
 
 Operations define a monoid
 """
-from sets import Set
+
 from dateparser import DateDataParser
 import time
 import re
